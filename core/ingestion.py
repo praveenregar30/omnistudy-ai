@@ -359,17 +359,38 @@ class CourseKnowledgeBase:
         return created_units
 
     def simplify_lecture_notes(self, text: str, title: str = "Uploaded Lecture Notes", lang_mode: str = "English") -> Dict[str, Any]:
-        """Simplifies raw lecture notes into easy-to-understand bullet points, analogies, and flashcards."""
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if len(s.strip()) > 15]
-        if not sentences:
-            sentences = [text.strip()]
+        """Simplifies raw lecture notes or PDF slides into clean definitions, analogies, and flashcards."""
+        # Split by both sentence endings and slide bullet symbols (•)
+        raw_chunks = re.split(r"(?:(?<=[.!?])\s+|\s*•\s*|\n+)", text.strip())
+        
+        noise_keywords = {"mid-term", "end-term", "logistics", "assistant professor", "class participation", "august", "office hours"}
+        educational_verbs = {"is ", "are ", "means", "defined", "used to", "process", "algorithm", "model", "system", "function", "data", "learn"}
 
-        # Extract core sentences
-        key_points = sentences[:6]
+        clean_sentences = []
+        for ch in raw_chunks:
+            s = re.sub(r"\s+", " ", ch).strip(" •-*")
+            if len(s) < 35 or len(s) > 320:
+                continue
+            if any(nk in s.lower() for nk in noise_keywords):
+                continue
+            if any(ev in s.lower() for ev in educational_verbs):
+                clean_sentences.append(s)
+
+        if not clean_sentences:
+            clean_sentences = [re.sub(r"\s+", " ", c).strip() for c in raw_chunks if len(c.strip()) > 25][:6]
+
+        key_points = clean_sentences[:6]
+        
+        # Extract meaningful technical terms (excluding common names/months)
+        ignore_words = {
+            "this", "that", "there", "where", "which", "when", "from", "with", "have",
+            "indu", "joshi", "assistant", "professor", "indian", "institute", "technology",
+            "mandi", "august", "course", "logistics", "books", "shai", "christopher", "bishop"
+        }
         words = re.findall(r"\b[A-Z][a-zA-Z]{3,}\b", text)
         seen_terms = []
         for w in words:
-            if w.lower() not in {"this", "that", "there", "where", "which", "when", "from", "with", "have"} and w not in seen_terms:
+            if w.lower() not in ignore_words and w not in seen_terms:
                 seen_terms.append(w)
         top_concepts = seen_terms[:6] or ["Core Principle", "Key Mechanism", "Application"]
 
@@ -377,26 +398,26 @@ class CourseKnowledgeBase:
             summary_intro = (
                 f"### ✨ Simplified Notes Summary: **{title}** (Hinglish Mode)\n\n"
                 f"**🎯 Asaan Bhasha Mein Summary:**\n"
-                f"Yeh lecture notes मुख्य रूप से **{', '.join(top_concepts[:3])}** ke baare mein hain. "
-                f"Iska main goal aapko complex theory ko step-by-step samjhana hai taaki exam aur practicals mein aasaani ho."
+                f"Yeh lecture notes मुख्य रूप से **{', '.join(top_concepts[:4])}** ke core concepts samjhate hain. "
+                f"Niche har slide/page ke sabse important exam points ko simple language mein diya gaya hai:"
             )
         else:
             summary_intro = (
                 f"### ✨ Simplified Notes Summary: **{title}**\n\n"
                 f"**🎯 Big-Picture Overview:**\n"
-                f"These lecture notes cover **{', '.join(top_concepts[:3])}**. "
-                f"Below is the simplified breakdown turning dense text into clear, bite-sized takeaways:"
+                f"These lecture slides/notes focus on **{', '.join(top_concepts[:4])}**. "
+                f"Course logistics and headers have been automatically filtered out to give you the pure high-yield definitions:"
             )
 
-        bullets = "\n".join([f"- **Key Point {i+1}:** {pt}" for i, pt in enumerate(key_points)])
+        bullets = "\n".join([f"- **Key Takeaway {i+1}:** {pt}" for i, pt in enumerate(key_points)])
         
         flashcards = []
         for i, pt in enumerate(key_points[:3]):
             concept_label = top_concepts[i] if i < len(top_concepts) else f"Concept #{i+1}"
             flashcards.append({
-                "question": f"Explain the core idea of {concept_label} from {title}.",
+                "question": f"What is the key principle regarding {concept_label} in {title}?",
                 "answer": pt,
-                "source": f"{title} (Section {i+1})"
+                "source": f"{title} (Key Takeaway #{i+1})"
             })
 
         return {
