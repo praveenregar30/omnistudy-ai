@@ -423,6 +423,7 @@ class CourseKnowledgeBase:
         return {
             "title": title,
             "summary_markdown": f"{summary_intro}\n\n#### 📌 Simplified Step-by-Step Breakdown:\n{bullets}",
+            "key_points": key_points,
             "top_concepts": top_concepts,
             "flashcards": flashcards,
             "word_count": len(text.split())

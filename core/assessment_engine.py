@@ -368,3 +368,99 @@ class AdaptiveAssessmentEngine:
             is_correct=is_correct,
             cited_feedback=feedback
         )
+
+    def generate_questions_from_custom_notes(
+        self,
+        title: str,
+        topic: str,
+        key_points: List[str],
+        top_concepts: List[str]
+    ) -> List[AssessmentQuestion]:
+        """Dynamically synthesizes verified MCQ questions directly from user-uploaded PDFs/notes."""
+        created_questions: List[AssessmentQuestion] = []
+        distractor_pool = [
+            "It only applies to unsorted random noise without training data.",
+            "It eliminates the need for input features or mathematical optimization.",
+            "It forces all model weights to diverge toward infinity during testing."
+        ]
+
+        for idx, pt in enumerate(key_points[:3]):
+            concept = top_concepts[idx] if idx < len(top_concepts) else "Core Concept"
+            q_text = f"[From Uploaded Material: {title}] According to your uploaded notes, which statement accurately describes '{concept}'?"
+            correct_ans = pt if len(pt) <= 180 else pt[:177] + "..."
+            v_hash = self._generate_hash(q_text, correct_ans)
+
+            # Avoid duplicate hashes
+            if any(existing.verification_hash == v_hash for existing in self.question_bank):
+                continue
+
+            options = [
+                correct_ans,
+                distractor_pool[0],
+                distractor_pool[1],
+                distractor_pool[2]
+            ]
+            q_id = f"q_custom_{len(self.question_bank) + 1:03d}"
+            new_q = AssessmentQuestion(
+                question_id=q_id,
+                topic=topic,
+                subtopic=f"{title} ({concept})",
+                source_location=f"Uploaded PDF / Notes (Takeaway #{idx + 1})",
+                source_title=title,
+                question_type="MCQ",
+                difficulty=0.45,
+                difficulty_label="Medium",
+                question_text=q_text,
+                options=options,
+                correct_answer=correct_ans,
+                correct_index=0,
+                explanation_cited=f"Directly verified from your uploaded material '{title}': \"{pt}\"",
+                misconception_analysis="Other options contradict the empirical data-driven definition in your uploaded lecture notes.",
+                verified=True,
+                verification_hash=v_hash
+            )
+            self.question_bank.insert(0, new_q)
+            created_questions.append(new_q)
+
+        return created_questions
+
+    def evaluate_feynman_teachback(self, topic: str, student_explanation: str) -> Dict[str, Any]:
+        """Grades a student's 'Feynman Teach-Back' explanation in their own words."""
+        import re
+        topic_units = [u for u in self.kb.units.values() if u.topic == topic]
+        reference_text = " ".join([f"{u.subtopic} {u.content_text}" for u in topic_units]).lower()
+
+        # Extract important domain terms for the topic
+        domain_terms = set(re.findall(r"\b[a-z]{5,}\b", reference_text)) - {
+            "which", "their", "there", "where", "would", "could", "should", "these", "those", "about", "using"
+        }
+        student_terms = set(re.findall(r"\b[a-z]{4,}\b", student_explanation.lower()))
+
+        matched = sorted(list(domain_terms.intersection(student_terms)))[:6]
+        word_len = len(student_explanation.split())
+
+        # Compute Feynman clarity score
+        coverage_score = min(1.0, len(matched) / 4.0)
+        length_score = min(1.0, word_len / 15.0)
+        clarity_pct = int(round((0.65 * coverage_score + 0.35 * length_score) * 100))
+        clarity_pct = max(25, min(98, clarity_pct))
+
+        if clarity_pct >= 75:
+            verdict = "🌟 **Outstanding Feynman Explanation!** You captured the core mechanism clearly."
+            bkt_bonus = "deep"
+        elif clarity_pct >= 50:
+            verdict = "👍 **Good Foundation!** You explained the main idea well, with room for deeper mathematical precision."
+            bkt_bonus = "medium"
+        else:
+            verdict = "💡 **Developing Understanding:** Try including more specific mechanisms and how inputs map to outputs."
+            bkt_bonus = "light"
+
+        sample_missing = sorted(list(domain_terms - student_terms))[:4]
+        return {
+            "clarity_score": clarity_pct,
+            "verdict": verdict,
+            "matched_keywords": matched or ["basic intuition"],
+            "suggested_terms_to_include": sample_missing,
+            "bkt_depth": bkt_bonus
+        }
+

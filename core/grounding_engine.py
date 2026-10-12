@@ -60,7 +60,8 @@ class GroundingEngine:
         self,
         query: str,
         student_level: str = "Undergraduate",
-        language_mode: str = "English"  # 'English' or 'Hinglish'
+        language_mode: str = "English",  # 'English' or 'Hinglish'
+        gemini_api_key: str = ""
     ) -> Dict[str, Any]:
         """Synthesizes a source-cited explanation or flags out-of-syllabus queries."""
         is_in_scope, confidence, retrieved_units = self.verify_query_scope(query)
@@ -108,22 +109,45 @@ class GroundingEngine:
 
         # Synthesize source-grounded response
         explanation_blocks = []
-        
-        # Primary Definition & Mathematical Formulation
-        if language_mode == "Hinglish":
-            explanation_blocks.append(
-                f"### 📘 {primary_unit.subtopic} (Concept Explanation)\n\n"
-                f"Course material ke mutabiq, **{primary_unit.subtopic}** ek core concept hai "
-                f"in **{primary_unit.topic}**."
-            )
-        else:
-            explanation_blocks.append(
-                f"### 📘 {primary_unit.subtopic}\n\n"
-                f"According to the ingested course material for **{primary_unit.topic}**, "
-                f"here is the grounded breakdown:"
-            )
 
-        explanation_blocks.append(f"\n{primary_unit.content_text}\n")
+        # Optional Live Gemini 2.0 Flash Enrichment if API key is provided
+        gemini_text = ""
+        if gemini_api_key.strip():
+            try:
+                import requests
+                context_blob = "\n".join([f"[{u.source_title} | {u.location}]: {u.content_text}" for u in retrieved_units])
+                prompt = (
+                    f"You are OmniStudy AI, a source-grounded university tutor. Answer the student's question "
+                    f"strictly using the following course material context. Student level: {student_level}. "
+                    f"Language mode: {language_mode}. Cite the exact location in brackets.\n\n"
+                    f"Course Material Context:\n{context_blob}\n\nStudent Question: {query}"
+                )
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_api_key.strip()}"
+                resp = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=8)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    gemini_text = data["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception:
+                gemini_text = ""
+
+        if gemini_text:
+            explanation_blocks.append(f"### 🤖 Gemini-Grounded Explanation: {primary_unit.subtopic}\n\n{gemini_text}\n")
+        else:
+            # Primary Definition & Mathematical Formulation
+            if language_mode == "Hinglish":
+                explanation_blocks.append(
+                    f"### 📘 {primary_unit.subtopic} (Concept Explanation)\n\n"
+                    f"Course material ke mutabiq, **{primary_unit.subtopic}** ek core concept hai "
+                    f"in **{primary_unit.topic}**."
+                )
+            else:
+                explanation_blocks.append(
+                    f"### 📘 {primary_unit.subtopic}\n\n"
+                    f"According to the ingested course material for **{primary_unit.topic}**, "
+                    f"here is the grounded breakdown:"
+                )
+
+            explanation_blocks.append(f"\n{primary_unit.content_text}\n")
 
         # Include Mathematical Formulation if present
         if primary_unit.key_formulas:
@@ -153,7 +177,7 @@ class GroundingEngine:
             explanation_blocks.append(cross_modal_text)
 
         # Hinglish intuitive wrap-up
-        if language_mode == "Hinglish":
+        if language_mode == "Hinglish" and not gemini_text:
             explanation_blocks.append(
                 "\n💡 **Intuitive Summary (Hinglish):**\n"
                 "Asaan lafzon mein: Yeh concept ensure karta hai ki model data ke patterns ko sahi se generalise "
@@ -166,6 +190,7 @@ class GroundingEngine:
             "in_scope": True,
             "confidence": confidence,
             "explanation": full_explanation,
+            "plain_speech_text": primary_unit.content_text,
             "citations": citations,
             "primary_topic": primary_unit.topic,
             "primary_subtopic": primary_unit.subtopic,
