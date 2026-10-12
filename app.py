@@ -317,16 +317,30 @@ def render_voice_player(speech_text: str, button_label: str = "🔊 Listen to AI
 
 # Session State Initialization
 @st.cache_resource
-def get_core_instances():
-    kb = CourseKnowledgeBase()
-    learner = BayesianLearnerModel()
-    grounding = GroundingEngine(kb)
-    assessment = AdaptiveAssessmentEngine(kb)
-    enhancements = EnhancementsManager(kb)
-    suite = BenchmarkSuite(kb, grounding, assessment, learner)
+def get_core_instances(_version: str = "peak_v2.1"):
+    import importlib
+    import core.ingestion
+    import core.learner_model
+    import core.grounding_engine
+    import core.assessment_engine
+    import core.enhancements
+    import core.evaluation_benchmarks
+    importlib.reload(core.ingestion)
+    importlib.reload(core.learner_model)
+    importlib.reload(core.grounding_engine)
+    importlib.reload(core.assessment_engine)
+    importlib.reload(core.enhancements)
+    importlib.reload(core.evaluation_benchmarks)
+
+    kb = core.ingestion.CourseKnowledgeBase()
+    learner = core.learner_model.BayesianLearnerModel()
+    grounding = core.grounding_engine.GroundingEngine(kb)
+    assessment = core.assessment_engine.AdaptiveAssessmentEngine(kb)
+    enhancements = core.enhancements.EnhancementsManager(kb)
+    suite = core.evaluation_benchmarks.BenchmarkSuite(kb, grounding, assessment, learner)
     return kb, learner, grounding, assessment, enhancements, suite
 
-kb, learner, grounding, assessment, enhancements, suite = get_core_instances()
+kb, learner, grounding, assessment, enhancements, suite = get_core_instances("peak_v2.1")
 
 if "students" not in st.session_state:
     st.session_state.students = {
