@@ -48,8 +48,10 @@ class GroundingEngine:
         }
         has_curriculum_kw = any(kw in query.lower() for kw in curriculum_keywords)
 
-        if overlap >= 2 or has_curriculum_kw:
-            confidence = min(0.98, 0.40 + (0.15 * min(4, overlap)))
+        is_custom_match = (top_unit.unit_id.startswith("custom_") and overlap >= 1)
+
+        if overlap >= 2 or has_curriculum_kw or is_custom_match:
+            confidence = min(0.98, 0.40 + (0.15 * min(4, max(1, overlap))))
             return True, confidence, results
 
         return False, 0.05, []

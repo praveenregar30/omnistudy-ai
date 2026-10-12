@@ -306,3 +306,104 @@ class CourseKnowledgeBase:
         )
         self.add_unit(unit)
         return unit
+
+    def ingest_uploaded_file(self, file_obj: Any, filename: str, topic: str = "Custom Lecture Notes") -> List[ContentUnit]:
+        """Reads an uploaded PDF, TXT, or MD file and splits it into cited knowledge units."""
+        created_units: List[ContentUnit] = []
+        ext = os.path.splitext(filename)[1].lower()
+
+        if ext == ".pdf":
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(file_obj)
+                for idx, page in enumerate(reader.pages):
+                    page_text = (page.extract_text() or "").strip()
+                    if page_text:
+                        u = self.ingest_custom_document(
+                            title=filename,
+                            text=page_text,
+                            source_type="textbook",
+                            topic=topic,
+                            subtopic=f"{filename} (Page {idx + 1})",
+                            location=f"Uploaded PDF p. {idx + 1}"
+                        )
+                        u.page_number = idx + 1
+                        created_units.append(u)
+            except Exception as e:
+                u = self.ingest_custom_document(
+                    title=filename,
+                    text=f"Uploaded PDF file: {filename}. Error parsing: {e}",
+                    source_type="textbook",
+                    topic=topic,
+                    subtopic=filename,
+                    location="Uploaded PDF p. 1"
+                )
+                created_units.append(u)
+        else:
+            raw_bytes = file_obj.read()
+            text = raw_bytes.decode("utf-8", errors="ignore") if isinstance(raw_bytes, bytes) else str(raw_bytes)
+            paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if len(p.strip()) > 20]
+            if not paragraphs:
+                paragraphs = [text.strip()]
+            for idx, chunk in enumerate(paragraphs[:15]):
+                u = self.ingest_custom_document(
+                    title=filename,
+                    text=chunk,
+                    source_type="slide_deck",
+                    topic=topic,
+                    subtopic=f"{filename} - Section {idx + 1}",
+                    location=f"Notes Section {idx + 1}"
+                )
+                created_units.append(u)
+
+        return created_units
+
+    def simplify_lecture_notes(self, text: str, title: str = "Uploaded Lecture Notes", lang_mode: str = "English") -> Dict[str, Any]:
+        """Simplifies raw lecture notes into easy-to-understand bullet points, analogies, and flashcards."""
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if len(s.strip()) > 15]
+        if not sentences:
+            sentences = [text.strip()]
+
+        # Extract core sentences
+        key_points = sentences[:6]
+        words = re.findall(r"\b[A-Z][a-zA-Z]{3,}\b", text)
+        seen_terms = []
+        for w in words:
+            if w.lower() not in {"this", "that", "there", "where", "which", "when", "from", "with", "have"} and w not in seen_terms:
+                seen_terms.append(w)
+        top_concepts = seen_terms[:6] or ["Core Principle", "Key Mechanism", "Application"]
+
+        if "Hinglish" in lang_mode:
+            summary_intro = (
+                f"### ✨ Simplified Notes Summary: **{title}** (Hinglish Mode)\n\n"
+                f"**🎯 Asaan Bhasha Mein Summary:**\n"
+                f"Yeh lecture notes मुख्य रूप से **{', '.join(top_concepts[:3])}** ke baare mein hain. "
+                f"Iska main goal aapko complex theory ko step-by-step samjhana hai taaki exam aur practicals mein aasaani ho."
+            )
+        else:
+            summary_intro = (
+                f"### ✨ Simplified Notes Summary: **{title}**\n\n"
+                f"**🎯 Big-Picture Overview:**\n"
+                f"These lecture notes cover **{', '.join(top_concepts[:3])}**. "
+                f"Below is the simplified breakdown turning dense text into clear, bite-sized takeaways:"
+            )
+
+        bullets = "\n".join([f"- **Key Point {i+1}:** {pt}" for i, pt in enumerate(key_points)])
+        
+        flashcards = []
+        for i, pt in enumerate(key_points[:3]):
+            concept_label = top_concepts[i] if i < len(top_concepts) else f"Concept #{i+1}"
+            flashcards.append({
+                "question": f"Explain the core idea of {concept_label} from {title}.",
+                "answer": pt,
+                "source": f"{title} (Section {i+1})"
+            })
+
+        return {
+            "title": title,
+            "summary_markdown": f"{summary_intro}\n\n#### 📌 Simplified Step-by-Step Breakdown:\n{bullets}",
+            "top_concepts": top_concepts,
+            "flashcards": flashcards,
+            "word_count": len(text.split())
+        }
+

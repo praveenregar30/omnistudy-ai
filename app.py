@@ -90,11 +90,19 @@ kb, learner, grounding, assessment, enhancements, suite = get_core_instances()
 
 if "students" not in st.session_state:
     st.session_state.students = {
+        "Praveen": learner.create_new_student("std_00", "Praveen Regar (Undergraduate)", "Undergraduate"),
         "Priya": learner.create_new_student("std_01", "Priya (Undergraduate)", "Undergraduate"),
         "Aarav": learner.create_new_student("std_02", "Aarav (Beginner)", "Beginner"),
         "Rohan": learner.create_new_student("std_03", "Rohan (Advanced)", "Advanced")
     }
     # Calibrate initial student states
+    learner.apply_diagnostic_result(st.session_state.students["Praveen"], {
+        "Supervised Learning": 0.45,
+        "Classification": 0.40,
+        "Model Evaluation & Regularization": 0.30,
+        "Deep Learning": 0.35,
+        "Unsupervised Learning": 0.40
+    })
     learner.apply_diagnostic_result(st.session_state.students["Priya"], {
         "Supervised Learning": 0.40,
         "Classification": 0.35,
@@ -104,7 +112,7 @@ if "students" not in st.session_state:
     })
 
 if "current_student_key" not in st.session_state:
-    st.session_state.current_student_key = "Priya"
+    st.session_state.current_student_key = "Praveen"
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -114,6 +122,9 @@ if "active_quiz" not in st.session_state:
 
 if "quiz_attempts" not in st.session_state:
     st.session_state.quiz_attempts = {}
+
+if "simplified_notes_result" not in st.session_state:
+    st.session_state.simplified_notes_result = None
 
 current_student = st.session_state.students[st.session_state.current_student_key]
 
@@ -136,6 +147,20 @@ with st.sidebar:
         st.session_state.current_student_key = student_choice
         st.rerun()
 
+    with st.expander("➕ Add New Student Profile"):
+        new_student_name = st.text_input("Student Name:", placeholder="e.g., Rahul Sharma")
+        new_student_level = st.selectbox("Level:", ["Beginner", "Undergraduate", "Advanced"])
+        if st.button("Create Student Profile"):
+            if new_student_name.strip():
+                clean_key = new_student_name.strip().split()[0]
+                sid = f"std_{len(st.session_state.students) + 1:02d}"
+                st.session_state.students[clean_key] = learner.create_new_student(
+                    sid, f"{new_student_name.strip()} ({new_student_level})", new_student_level
+                )
+                st.session_state.current_student_key = clean_key
+                st.success(f"Added {new_student_name}!")
+                st.rerun()
+
     # Calculate overall BKT mastery
     t_masteries = [tm.mastery_prob for tm in current_student.topic_masteries.values()]
     avg_mastery = sum(t_masteries) / max(1, len(t_masteries))
@@ -156,23 +181,48 @@ with st.sidebar:
             f"• **Textbooks:** 3 volumes (paginated)\n"
             f"• **Slide Decks:** 3 decks (with diagrams)")
 
-    with st.expander("➕ Ingest Custom Document"):
-        custom_title = st.text_input("Title:", "Supplementary Lecture Notes")
-        custom_topic = st.selectbox("Topic:", list(kb.topics.keys()))
-        custom_source = st.selectbox("Format:", ["lecture_video", "textbook", "slide_deck"])
-        custom_loc = st.text_input("Source Location:", "Video @ 02:00 / p. 12 / Slide 4")
-        custom_text = st.text_area("Content Text:", "Type or paste transcript/notes here...")
-        if st.button("Ingest into Knowledge Base"):
-            if custom_text.strip():
-                kb.ingest_custom_document(custom_title, custom_text, custom_source, custom_topic, custom_title, custom_loc)
-                st.success("Successfully ingested into live Multimodal Knowledge Base!")
+    with st.expander("📄 Upload & Simplify Lecture Notes", expanded=True):
+        uploaded_file = st.file_uploader("Upload PDF or Text Notes:", type=["pdf", "txt", "md"])
+        custom_title = st.text_input("Or Title for Pasted Notes:", "My Lecture Notes")
+        custom_topic = st.selectbox("Assign to Topic:", list(kb.topics.keys()))
+        custom_text = st.text_area("Or Paste Notes Here:", placeholder="Paste any complex lecture paragraph here to simplify and ingest...")
+        if st.button("✨ Ingest & Simplify Notes", type="primary"):
+            raw_content_to_simplify = ""
+            doc_title = custom_title
+            if uploaded_file is not None:
+                doc_title = uploaded_file.name
+                units_created = kb.ingest_uploaded_file(uploaded_file, uploaded_file.name, topic=custom_topic)
+                raw_content_to_simplify = " ".join([u.content_text for u in units_created])
+            elif custom_text.strip():
+                u = kb.ingest_custom_document(custom_title, custom_text, "slide_deck", custom_topic, custom_title, "Custom Notes p. 1")
+                raw_content_to_simplify = custom_text.strip()
+
+            if raw_content_to_simplify:
+                st.session_state.simplified_notes_result = kb.simplify_lecture_notes(
+                    raw_content_to_simplify, title=doc_title, lang_mode=lang_mode
+                )
+                st.success(f"Ingested & Simplified '{doc_title}'!")
                 st.rerun()
+
 
 # ==========================================
 # MAIN INTERFACE HEADER
 # ==========================================
 st.markdown('<div class="main-header">OmniStudy AI: Grounded Multimodal Study Companion</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Source-Grounding (Textbooks, Slides, Videos) • Bayesian Knowledge Tracing • Adaptive Assessment</div>', unsafe_allow_html=True)
+
+if st.session_state.simplified_notes_result:
+    simp = st.session_state.simplified_notes_result
+    with st.expander(f"✨ Newly Simplified Lecture Notes: {simp['title']} ({simp['word_count']} words)", expanded=True):
+        st.markdown(simp["summary_markdown"])
+        st.markdown("##### 📇 Auto-Generated Study Flashcards from Your Notes:")
+        fc_cols = st.columns(len(simp["flashcards"]))
+        for idx, fc in enumerate(simp["flashcards"]):
+            with fc_cols[idx]:
+                st.info(f"**Q:** {fc['question']}\n\n**A:** {fc['answer']}\n\n*📍 {fc['source']}*")
+        if st.button("Close Simplified View"):
+            st.session_state.simplified_notes_result = None
+            st.rerun()
 
 # TOP TABS
 tab_chat, tab_assessment, tab_learner, tab_graph, tab_revision, tab_eval = st.tabs([
