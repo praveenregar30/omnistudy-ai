@@ -1,0 +1,100 @@
+{
+  "rag_metrics": {
+    "faithfulness": 0.69,
+    "answer_relevancy": 0.823,
+    "context_precision": 0.393,
+    "context_recall": 1.0,
+    "refusal_accuracy": 1.0,
+    "overall_score": 0.781
+  },
+  "cohort_simulation": {
+    "Aarav (Struggling Learner)": {
+      "initial_mastery": 0.15,
+      "final_mastery": 0.507,
+      "mastery_gain": 0.357,
+      "mastery_timeline": [
+        0.15,
+        0.304,
+        0.375,
+        0.472,
+        0.444,
+        0.49,
+        0.507
+      ],
+      "avg_difficulty_timeline": [
+        0.35,
+        0.48,
+        0.6,
+        0.53,
+        0.53,
+        0.53
+      ],
+      "topics_mastery_final": {
+        "Supervised Learning": 0.326,
+        "Classification": 0.99,
+        "Model Evaluation & Regularization": 0.168,
+        "Deep Learning": 0.526,
+        "Unsupervised Learning": 0.526
+      }
+    },
+    "Priya (Steady Learner)": {
+      "initial_mastery": 0.25,
+      "final_mastery": 0.718,
+      "mastery_gain": 0.468,
+      "mastery_timeline": [
+        0.25,
+        0.401,
+        0.471,
+        0.717,
+        0.709,
+        0.804,
+        0.718
+      ],
+      "avg_difficulty_timeline": [
+        0.35,
+        0.53,
+        0.55,
+        0.75,
+        0.75,
+        0.75
+      ],
+      "topics_mastery_final": {
+        "Supervised Learning": 0.99,
+        "Classification": 0.919,
+        "Model Evaluation & Regularization": 0.36,
+        "Deep Learning": 0.66,
+        "Unsupervised Learning": 0.66
+      }
+    },
+    "Rohan (Advanced Learner)": {
+      "initial_mastery": 0.45,
+      "final_mastery": 0.84,
+      "mastery_gain": 0.39,
+      "mastery_timeline": [
+        0.45,
+        0.525,
+        0.7,
+        0.767,
+        0.834,
+        0.808,
+        0.84
+      ],
+      "avg_difficulty_timeline": [
+        0.53,
+        0.55,
+        0.65,
+        0.75,
+        0.75,
+        0.75
+      ],
+      "topics_mastery_final": {
+        "Supervised Learning": 0.953,
+        "Classification": 0.99,
+        "Model Evaluation & Regularization": 0.99,
+        "Deep Learning": 0.818,
+        "Unsupervised Learning": 0.45
+      }
+    }
+  },
+  "question_repetition_rate": 0.0
+}
