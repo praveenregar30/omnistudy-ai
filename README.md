@@ -127,8 +127,8 @@ The system was evaluated using `run_evaluation.py` on a team-built Golden Test S
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/<your-username>/omnisty-ai.git
-cd omnisty-ai
+git clone https://github.com/praveenregar30/omnistudy-ai.git
+cd omnistudy-ai
 pip install -r requirements.txt
 ```
 
