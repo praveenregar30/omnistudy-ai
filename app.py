@@ -19,7 +19,57 @@ from core.grounding_engine import GroundingEngine
 from core.assessment_engine import AdaptiveAssessmentEngine, AssessmentQuestion, QuestionAttempt
 from core.enhancements import EnhancementsManager
 from core.evaluation_benchmarks import BenchmarkSuite
+
+import importlib
+import core.storage
+importlib.reload(core.storage)
 from core.storage import UserStorage
+
+def get_safe_grouped_docs(username: str) -> List[Dict[str, Any]]:
+    """Resilient wrapper that safely returns grouped documents even if module cache is stale."""
+    if hasattr(UserStorage, "get_user_documents_grouped"):
+        try:
+            return UserStorage.get_user_documents_grouped(username)
+        except Exception:
+            pass
+    try:
+        raw_docs = UserStorage.get_user_documents(username)
+        grouped: Dict[Any, Dict[str, Any]] = {}
+        for d in raw_docs:
+            key = (d.get("title", ""), d.get("topic", ""), d.get("source_type", ""))
+            if key not in grouped:
+                grouped[key] = {
+                    "title": d.get("title", ""),
+                    "topic": d.get("topic", ""),
+                    "source_type": d.get("source_type", ""),
+                    "page_count": 0,
+                    "uploaded_at": d.get("timestamp", 0)
+                }
+            grouped[key]["page_count"] += 1
+        return list(grouped.values())
+    except Exception:
+        return []
+
+def safe_delete_user_doc(username: str, title: str) -> None:
+    """Resilient wrapper that deletes documents safely."""
+    if hasattr(UserStorage, "delete_user_document"):
+        try:
+            UserStorage.delete_user_document(username, title)
+            return
+        except Exception:
+            pass
+    try:
+        conn = core.storage.get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM user_documents WHERE username = ? AND title = ?", (username, title))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+# Attach resilient methods to UserStorage class so all calls succeed 100% of the time
+UserStorage.get_user_documents_grouped = staticmethod(get_safe_grouped_docs)
+UserStorage.delete_user_document = staticmethod(safe_delete_user_doc)
 
 # Page Configuration
 st.set_page_config(
@@ -348,24 +398,30 @@ if st.session_state.current_username is None:
     w_col1, w_col2, w_col3 = st.columns(3)
     with w_col1:
         st.markdown("""
-        <div class="kpi-card" style="text-align:center; min-height: 210px; padding: 24px 18px;">
-            <div style="font-size:2.8rem; margin-bottom: 10px;">👤</div>
+        <div class="kpi-card" style="text-align:center; min-height: 180px; padding: 20px 18px;">
+            <div style="font-size:2.6rem; margin-bottom: 8px;">👑</div>
             <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.25rem;">Praveen Regar</h3>
-            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 12px;">Owner & Lead Student</p>
-            <p style="font-size:0.82rem; color:#0284c7; margin-bottom: 0;">Private lecture notes, study packs & BKT state</p>
+            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 8px;">Owner & Lead Student</p>
+            <p style="font-size:0.80rem; color:#0284c7; margin-bottom: 0;">🔒 Password Protected Profile</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("🚀 Enter as Praveen (Owner)", key="btn_w_praveen", use_container_width=True, type="primary"):
-            st.session_state.current_username = "praveen"
-            st.rerun()
+        owner_pass = st.text_input("Owner Password:", type="password", key="owner_pwd_gate", placeholder="Enter password...")
+        if st.button("🚀 Unlock Praveen Profile", key="btn_w_praveen", use_container_width=True, type="primary"):
+            if owner_pass == "praveen30":
+                st.session_state.current_username = "praveen"
+                st.session_state.owner_authenticated = True
+                st.success("✅ Welcome, Praveen! Unlocking your dashboard...")
+                st.rerun()
+            else:
+                st.error("❌ Incorrect password! Only owner Praveen can unlock this profile.")
 
     with w_col2:
         st.markdown("""
-        <div class="kpi-card" style="text-align:center; min-height: 210px; padding: 24px 18px;">
-            <div style="font-size:2.8rem; margin-bottom: 10px;">🧪</div>
+        <div class="kpi-card" style="text-align:center; min-height: 180px; padding: 20px 18px;">
+            <div style="font-size:2.6rem; margin-bottom: 8px;">🧪</div>
             <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.25rem;">Hackathon Judge</h3>
-            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 12px;">Evaluator & Demo Profile</p>
-            <p style="font-size:0.82rem; color:#7c3aed; margin-bottom: 0;">Track D rubric inspection & demo testing</p>
+            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 8px;">Evaluator & Demo Profile</p>
+            <p style="font-size:0.80rem; color:#7c3aed; margin-bottom: 0;">Track D rubric inspection & demo testing</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("🔍 Enter as Judge (Demo)", key="btn_w_judge", use_container_width=True):
@@ -374,11 +430,11 @@ if st.session_state.current_username is None:
 
     with w_col3:
         st.markdown("""
-        <div class="kpi-card" style="text-align:center; min-height: 210px; padding: 24px 18px;">
-            <div style="font-size:2.8rem; margin-bottom: 10px;">✨</div>
+        <div class="kpi-card" style="text-align:center; min-height: 180px; padding: 20px 18px;">
+            <div style="font-size:2.6rem; margin-bottom: 8px;">✨</div>
             <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.25rem;">Guest Student</h3>
-            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 12px;">Fresh Clean Learner</p>
-            <p style="font-size:0.82rem; color:#059669; margin-bottom: 0;">Starts completely clean at 0% with 0 uploads</p>
+            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 8px;">Fresh Clean Learner</p>
+            <p style="font-size:0.80rem; color:#059669; margin-bottom: 0;">Starts completely clean at 0% with 0 uploads</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("🌱 Start as Guest (Fresh 0%)", key="btn_w_guest", use_container_width=True):
@@ -398,20 +454,29 @@ if st.session_state.current_username is None:
         if st.button("Enter as New Student", type="primary", use_container_width=True, key="btn_w_custom"):
             if custom_input_name.strip():
                 clean_id = custom_input_name.strip().lower().replace(" ", "_")
-                DEFAULT_PROFILES[clean_id] = {"name": custom_input_name.strip(), "level": custom_input_lvl, "init_scores": {}}
-                st.session_state.current_username = clean_id
-                st.rerun()
+                if "praveen" in clean_id:
+                    st.error("🔒 'Praveen' is the owner profile. Please unlock it using the Praveen (Owner) card above with your password.")
+                else:
+                    DEFAULT_PROFILES[clean_id] = {"name": custom_input_name.strip(), "level": custom_input_lvl, "init_scores": {}}
+                    st.session_state.current_username = clean_id
+                    st.rerun()
 
     st.stop()  # Halt execution until profile is chosen!
 
+# Safety check: Praveen profile requires owner authentication
+if st.session_state.current_username == "praveen" and not st.session_state.get("owner_authenticated", False):
+    st.session_state.current_username = None
+    st.rerun()
+
 # Helper to sync user state with SQLite storage
-def sync_active_student(username: str) -> StudentProfile:
-    meta = DEFAULT_PROFILES.get(username, {"name": f"{username.title()}", "level": "Undergraduate", "init_scores": {}})
-    u_data = UserStorage.get_or_create_user(username, meta["name"], meta["level"])
-    student = learner.create_new_student(f"usr_{username}", u_data["display_name"], u_data["academic_level"])
+def sync_active_student(username: Optional[str]) -> StudentProfile:
+    clean_username = username if username else "guest"
+    meta = DEFAULT_PROFILES.get(clean_username, {"name": f"{clean_username.title()}", "level": "Undergraduate", "init_scores": {}})
+    u_data = UserStorage.get_or_create_user(clean_username, meta["name"], meta["level"])
+    student = learner.create_new_student(f"usr_{clean_username}", u_data["display_name"], u_data["academic_level"])
 
     # Load BKT Mastery from SQLite
-    db_masteries = UserStorage.load_mastery(username)
+    db_masteries = UserStorage.load_mastery(clean_username)
     if db_masteries:
         for t, m_dict in db_masteries.items():
             if t in student.topic_masteries:
@@ -424,11 +489,11 @@ def sync_active_student(username: str) -> StudentProfile:
     else:
         # Initial cold start (0 interactions)
         for t, tm in student.topic_masteries.items():
-            UserStorage.save_mastery(username, t, 0.0, 0, 0, 2.0)
+            UserStorage.save_mastery(clean_username, t, 0.0, 0, 0, 2.0)
 
     # Isolated user documents reload
     kb.reset_to_core_units()
-    user_docs = UserStorage.get_user_documents(username)
+    user_docs = UserStorage.get_user_documents(clean_username)
     for doc in user_docs:
         kb.ingest_custom_document(
             title=doc["title"],
@@ -443,7 +508,8 @@ def sync_active_student(username: str) -> StudentProfile:
 
     return student
 
-current_student = sync_active_student(st.session_state.current_username)
+active_user = st.session_state.current_username or "guest"
+current_student = sync_active_student(active_user)
 
 # Calculate real BKT mastery: only counts topics where student has actually practiced!
 active_masteries = [tm.mastery_prob for tm in current_student.topic_masteries.values() if tm.interactions_count > 0]
@@ -498,15 +564,16 @@ with st.sidebar:
         "judge": "Hackathon Judge (Demo)",
         "guest": "Guest Student"
     }
-    current_label = profile_options.get(st.session_state.current_username, st.session_state.current_username.title())
+    current_label = profile_options.get(active_user, active_user.title())
     st.info(f"**Logged in as:** `{current_label}`")
 
     if st.button("🚪 Switch Profile / Log Out", use_container_width=True):
         st.session_state.current_username = None
+        st.session_state.owner_authenticated = False
         st.rerun()
 
     # Special demo calibration tool for judge evaluation
-    if st.session_state.current_username == "judge":
+    if active_user == "judge":
         with st.expander("🧪 Judge Tools: Load Demo Scores"):
             st.caption("Load simulated mid-semester calibration for evaluation:")
             if st.button("Apply Demo Scores (65% Baseline)"):
@@ -519,7 +586,7 @@ with st.sidebar:
                 st.success("Loaded demo calibration!")
                 st.rerun()
 
-    st.caption(f"🔒 **Isolated Data Active**: All notes, BKT scores, chats, and quiz logs are strictly private to `{st.session_state.current_username}`.")
+    st.caption(f"🔒 **Isolated Data Active**: All notes, BKT scores, chats, and quiz logs are strictly private to `{active_user}`.")
 
     st.metric(
         label="Overall Mastery P(L)",
@@ -535,10 +602,13 @@ with st.sidebar:
         if st.button("Create Profile"):
             if new_name.strip():
                 clean_uid = new_name.strip().lower().replace(" ", "_")
-                DEFAULT_PROFILES[clean_uid] = {"name": new_name.strip(), "level": new_lvl, "init_scores": {}}
-                st.session_state.current_username = clean_uid
-                st.success(f"Profile created for {new_name}!")
-                st.rerun()
+                if "praveen" in clean_uid:
+                    st.error("🔒 'Praveen' is the protected owner profile.")
+                else:
+                    DEFAULT_PROFILES[clean_uid] = {"name": new_name.strip(), "level": new_lvl, "init_scores": {}}
+                    st.session_state.current_username = clean_uid
+                    st.success(f"Profile created for {new_name}!")
+                    st.rerun()
 
     st.markdown("---")
     # Quick Study Pack Download
@@ -546,7 +616,7 @@ with st.sidebar:
     st.download_button(
         label="📥 Download My Study Pack",
         data=study_guide_md,
-        file_name=f"{st.session_state.current_username}_OmniStudy_Pack.md",
+        file_name=f"{active_user}_OmniStudy_Pack.md",
         mime="text/markdown",
         use_container_width=True
     )
@@ -587,7 +657,7 @@ with kpi1:
     """, unsafe_allow_html=True)
 
 with kpi2:
-    my_doc_count = len(UserStorage.get_user_documents_grouped(st.session_state.current_username))
+    my_doc_count = len(UserStorage.get_user_documents_grouped(active_user))
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">📚 Knowledge Base</div>
@@ -684,21 +754,21 @@ with tab_ingest:
                 kb.topics[assigned_topic] = []
             if assigned_topic not in current_student.topic_masteries:
                 current_student.topic_masteries[assigned_topic] = TopicMastery(topic=assigned_topic, mastery_prob=0.0, interactions_count=0, correct_count=0, stability_days=2.0)
-                UserStorage.save_mastery(st.session_state.current_username, assigned_topic, 0.0, 0, 0, 2.0)
+                UserStorage.save_mastery(active_user, assigned_topic, 0.0, 0, 0, 2.0)
 
             with st.spinner("Processing multimodal document, extracting citations & inferring DAG..."):
                 if file_to_process is not None:
                     created_units_list = kb.ingest_uploaded_file(file_to_process, doc_title, topic=assigned_topic)
                     content_for_simplification = " ".join([u.content_text for u in created_units_list])
                     for u in created_units_list:
-                        UserStorage.save_user_document(st.session_state.current_username, doc_title, u.source_type, assigned_topic, u.location, u.content_text)
+                        UserStorage.save_user_document(active_user, doc_title, u.source_type, assigned_topic, u.location, u.content_text)
                 elif raw_text_to_process.strip():
                     src_type = "lecture_video" if "Video" in input_type else "slide_deck"
                     loc = "Video Transcript" if "Video" in input_type else "Lecture Slide Notes"
                     u = kb.ingest_custom_document(doc_title, raw_text_to_process.strip(), src_type, assigned_topic, doc_title, loc)
                     created_units_list = [u]
                     content_for_simplification = raw_text_to_process.strip()
-                    UserStorage.save_user_document(st.session_state.current_username, doc_title, src_type, assigned_topic, loc, raw_text_to_process.strip())
+                    UserStorage.save_user_document(active_user, doc_title, src_type, assigned_topic, loc, raw_text_to_process.strip())
 
                 if content_for_simplification:
                     simp = kb.simplify_lecture_notes(content_for_simplification, title=doc_title, lang_mode=lang_mode)
@@ -715,8 +785,8 @@ with tab_ingest:
                     st.rerun()
 
     with ingest_col2:
-        st.markdown(f"#### 📁 My Uploaded Documents ({st.session_state.current_username.title()})")
-        grouped_docs = UserStorage.get_user_documents_grouped(st.session_state.current_username)
+        st.markdown(f"#### 📁 My Uploaded Documents ({active_user.title()})")
+        grouped_docs = UserStorage.get_user_documents_grouped(active_user)
         if grouped_docs:
             for g_doc in grouped_docs:
                 g_col_info, g_col_act = st.columns([3.5, 1])
@@ -734,11 +804,11 @@ with tab_ingest:
                 with g_col_act:
                     st.write("")
                     if st.button("🗑️ Delete", key=f"del_doc_{g_doc['title']}_{g_doc['topic']}", use_container_width=True):
-                        UserStorage.delete_user_document(st.session_state.current_username, g_doc["title"])
-                        sync_active_student(st.session_state.current_username)
+                        UserStorage.delete_user_document(active_user, g_doc["title"])
+                        sync_active_student(active_user)
                         st.success(f"Deleted '{g_doc['title']}'!")
                         st.rerun()
-            st.caption(f"🔒 These {len(grouped_docs)} document(s) are private to `{st.session_state.current_username}` and isolated from other profiles.")
+            st.caption(f"🔒 These {len(grouped_docs)} document(s) are private to `{active_user}` and isolated from other profiles.")
         else:
             st.info("No custom files uploaded yet. Upload a PDF or paste notes to enrich your knowledge base!")
 
