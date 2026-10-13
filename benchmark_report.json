@@ -1,99 +1,100 @@
 {
   "rag_metrics": {
-    "faithfulness": 0.69,
-    "answer_relevancy": 0.823,
-    "context_precision": 0.393,
-    "context_recall": 1.0,
+    "faithfulness": 0.745,
+    "answer_relevancy": 0.818,
+    "context_precision": 0.475,
+    "context_recall": 0.882,
     "refusal_accuracy": 1.0,
-    "overall_score": 0.781
+    "test_set_size": 60
   },
-  "cohort_simulation": {
+  "modality_breakdown": {
+    "lecture_video": {
+      "recall": 0.867,
+      "precision": 0.492,
+      "faithfulness": 0.776
+    },
+    "textbook": {
+      "recall": 0.919,
+      "precision": 0.487,
+      "faithfulness": 0.732
+    },
+    "slide_deck": {
+      "recall": 0.856,
+      "precision": 0.45,
+      "faithfulness": 0.734
+    }
+  },
+  "strategy_comparison": {
+    "Adaptive BKT (OmniStudy)": [
+      0.3,
+      0.386,
+      0.444,
+      0.503,
+      0.554,
+      0.615,
+      0.668
+    ],
+    "Random Selection Baseline": [
+      0.3,
+      0.351,
+      0.367,
+      0.396,
+      0.407,
+      0.425,
+      0.454
+    ],
+    "Fixed Sequential Baseline": [
+      0.3,
+      0.333,
+      0.367,
+      0.408,
+      0.444,
+      0.472,
+      0.505
+    ]
+  },
+  "persona_results": {
     "Aarav (Struggling Learner)": {
-      "initial_mastery": 0.15,
-      "final_mastery": 0.585,
-      "mastery_gain": 0.435,
-      "mastery_timeline": [
-        0.15,
-        0.304,
-        0.331,
-        0.358,
-        0.317,
-        0.529,
-        0.585
-      ],
-      "avg_difficulty_timeline": [
-        0.35,
-        0.48,
-        0.6,
-        0.35,
-        0.35,
-        0.53
-      ],
-      "topics_mastery_final": {
-        "Supervised Learning": 0.99,
-        "Classification": 0.934,
-        "Model Evaluation & Regularization": 0.168,
-        "Deep Learning": 0.168,
-        "Unsupervised Learning": 0.664
-      }
+      "initial": 0.2,
+      "final": 0.349,
+      "gain": 0.149,
+      "timeline": [
+        0.2,
+        0.246,
+        0.262,
+        0.299,
+        0.328,
+        0.342,
+        0.349
+      ]
     },
     "Priya (Steady Learner)": {
-      "initial_mastery": 0.25,
-      "final_mastery": 0.843,
-      "mastery_gain": 0.593,
-      "mastery_timeline": [
-        0.25,
-        0.496,
-        0.492,
-        0.632,
-        0.713,
-        0.822,
-        0.843
-      ],
-      "avg_difficulty_timeline": [
-        0.35,
-        0.53,
-        0.55,
-        0.53,
-        0.75,
-        0.75
-      ],
-      "topics_mastery_final": {
-        "Supervised Learning": 0.936,
-        "Classification": 0.977,
-        "Model Evaluation & Regularization": 0.982,
-        "Deep Learning": 0.66,
-        "Unsupervised Learning": 0.66
-      }
+      "initial": 0.45,
+      "final": 0.628,
+      "gain": 0.178,
+      "timeline": [
+        0.45,
+        0.506,
+        0.535,
+        0.553,
+        0.568,
+        0.604,
+        0.628
+      ]
     },
     "Rohan (Advanced Learner)": {
-      "initial_mastery": 0.45,
-      "final_mastery": 0.848,
-      "mastery_gain": 0.398,
-      "mastery_timeline": [
-        0.45,
-        0.626,
-        0.801,
-        0.801,
-        0.84,
-        0.848,
-        0.848
-      ],
-      "avg_difficulty_timeline": [
-        0.53,
-        0.55,
-        0.65,
-        0.75,
-        0.75,
-        0.75
-      ],
-      "topics_mastery_final": {
-        "Supervised Learning": 0.99,
-        "Classification": 0.99,
-        "Model Evaluation & Regularization": 0.99,
-        "Deep Learning": 0.818,
-        "Unsupervised Learning": 0.45
-      }
+      "initial": 0.7,
+      "final": 0.833,
+      "gain": 0.133,
+      "timeline": [
+        0.7,
+        0.736,
+        0.765,
+        0.784,
+        0.813,
+        0.821,
+        0.833
+      ]
     }
   },
   "question_repetition_rate": 0.0
