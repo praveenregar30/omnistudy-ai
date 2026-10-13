@@ -14,7 +14,7 @@ import pandas as pd
 from typing import Dict, Any, List
 
 from core.ingestion import CourseKnowledgeBase, ContentUnit
-from core.learner_model import BayesianLearnerModel, StudentProfile
+from core.learner_model import BayesianLearnerModel, StudentProfile, TopicMastery
 from core.grounding_engine import GroundingEngine
 from core.assessment_engine import AdaptiveAssessmentEngine, AssessmentQuestion, QuestionAttempt
 from core.enhancements import EnhancementsManager
@@ -318,24 +318,91 @@ def get_core_instances():
 
 kb, learner, grounding, assessment, enhancements, suite = get_core_instances()
 
-# User profiles definition
+# User profiles definition (All start with clean 0% mastery until questions are practiced)
 DEFAULT_PROFILES = {
-    "praveen": {"name": "Praveen Regar (Owner & Lead)", "level": "Undergraduate", "init_scores": {
-        "Supervised Learning": 0.55, "Classification": 0.50, "Model Evaluation & Regularization": 0.40,
-        "Deep Learning": 0.45, "Unsupervised Learning": 0.35, "Search & Heuristics": 0.60
-    }},
-    "judge": {"name": "Hackathon Judge (Demo Evaluator)", "level": "Advanced", "init_scores": {
-        "Supervised Learning": 0.75, "Classification": 0.70, "Model Evaluation & Regularization": 0.65,
-        "Deep Learning": 0.60, "Unsupervised Learning": 0.55, "Search & Heuristics": 0.80
-    }},
-    "guest": {"name": "Guest Student (Beginner Learner)", "level": "Beginner", "init_scores": {
-        "Supervised Learning": 0.25, "Classification": 0.20, "Model Evaluation & Regularization": 0.15,
-        "Deep Learning": 0.10, "Unsupervised Learning": 0.10, "Search & Heuristics": 0.20
-    }}
+    "praveen": {"name": "Praveen Regar (Owner & Lead)", "level": "Undergraduate", "init_scores": {}},
+    "judge": {"name": "Hackathon Judge (Demo Evaluator)", "level": "Advanced", "init_scores": {}},
+    "guest": {"name": "Guest Student (Fresh Profile)", "level": "Beginner", "init_scores": {}}
 }
 
 if "current_username" not in st.session_state:
-    st.session_state.current_username = "praveen"
+    st.session_state.current_username = None
+
+# =====================================================================
+# WELCOME SCREEN: WHO IS STUDYING TODAY? (Solves Issue #1)
+# =====================================================================
+if st.session_state.current_username is None:
+    st.markdown("""
+    <div style="text-align: center; padding: 40px 15px 25px 15px;">
+        <span style="font-size: 3.5rem;">🎓</span>
+        <h1 style="font-size: 2.5rem; font-weight: 800; color: #1e3a8a; margin-top: 10px; margin-bottom: 8px;">
+            Welcome to OmniStudy AI
+        </h1>
+        <p style="font-size: 1.15rem; color: #475569; max-width: 650px; margin: 0 auto 30px auto;">
+            Your grounded multimodal study companion for <strong>Track D: Personalized Tutoring & Adaptive Learning</strong>.
+            Please select who is studying today to isolate your private notes, test attempts, and cognitive progress:
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    w_col1, w_col2, w_col3 = st.columns(3)
+    with w_col1:
+        st.markdown("""
+        <div class="kpi-card" style="text-align:center; min-height: 210px; padding: 24px 18px;">
+            <div style="font-size:2.8rem; margin-bottom: 10px;">👤</div>
+            <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.25rem;">Praveen Regar</h3>
+            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 12px;">Owner & Lead Student</p>
+            <p style="font-size:0.82rem; color:#0284c7; margin-bottom: 0;">Private lecture notes, study packs & BKT state</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🚀 Enter as Praveen (Owner)", key="btn_w_praveen", use_container_width=True, type="primary"):
+            st.session_state.current_username = "praveen"
+            st.rerun()
+
+    with w_col2:
+        st.markdown("""
+        <div class="kpi-card" style="text-align:center; min-height: 210px; padding: 24px 18px;">
+            <div style="font-size:2.8rem; margin-bottom: 10px;">🧪</div>
+            <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.25rem;">Hackathon Judge</h3>
+            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 12px;">Evaluator & Demo Profile</p>
+            <p style="font-size:0.82rem; color:#7c3aed; margin-bottom: 0;">Track D rubric inspection & demo testing</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🔍 Enter as Judge (Demo)", key="btn_w_judge", use_container_width=True):
+            st.session_state.current_username = "judge"
+            st.rerun()
+
+    with w_col3:
+        st.markdown("""
+        <div class="kpi-card" style="text-align:center; min-height: 210px; padding: 24px 18px;">
+            <div style="font-size:2.8rem; margin-bottom: 10px;">✨</div>
+            <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.25rem;">Guest Student</h3>
+            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 12px;">Fresh Clean Learner</p>
+            <p style="font-size:0.82rem; color:#059669; margin-bottom: 0;">Starts completely clean at 0% with 0 uploads</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🌱 Start as Guest (Fresh 0%)", key="btn_w_guest", use_container_width=True):
+            st.session_state.current_username = "guest"
+            st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### ➕ Or Enter with Your Own Custom Name:")
+    custom_c1, custom_c2, custom_c3 = st.columns([2, 1, 1])
+    with custom_c1:
+        custom_input_name = st.text_input("Your Full Name:", placeholder="e.g. Rahul Sharma, Ananya Verma", key="w_new_name")
+    with custom_c2:
+        custom_input_lvl = st.selectbox("Academic Track:", ["Beginner", "Undergraduate", "Advanced"], key="w_new_lvl")
+    with custom_c3:
+        st.write("")
+        st.write("")
+        if st.button("Enter as New Student", type="primary", use_container_width=True, key="btn_w_custom"):
+            if custom_input_name.strip():
+                clean_id = custom_input_name.strip().lower().replace(" ", "_")
+                DEFAULT_PROFILES[clean_id] = {"name": custom_input_name.strip(), "level": custom_input_lvl, "init_scores": {}}
+                st.session_state.current_username = clean_id
+                st.rerun()
+
+    st.stop()  # Halt execution until profile is chosen!
 
 # Helper to sync user state with SQLite storage
 def sync_active_student(username: str) -> StudentProfile:
@@ -352,12 +419,12 @@ def sync_active_student(username: str) -> StudentProfile:
                 student.topic_masteries[t].interactions_count = m_dict["interactions_count"]
                 student.topic_masteries[t].correct_count = m_dict["correct_count"]
                 student.topic_masteries[t].stability_days = m_dict["stability_days"]
+            else:
+                student.topic_masteries[t] = TopicMastery(t, m_dict["mastery_prob"], m_dict["interactions_count"], m_dict["correct_count"], m_dict["stability_days"])
     else:
-        # Seed default priors for new user
-        if meta.get("init_scores"):
-            learner.apply_diagnostic_result(student, meta["init_scores"])
+        # Initial cold start (0 interactions)
         for t, tm in student.topic_masteries.items():
-            UserStorage.save_mastery(username, t, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+            UserStorage.save_mastery(username, t, 0.0, 0, 0, 2.0)
 
     # Isolated user documents reload
     kb.reset_to_core_units()
@@ -371,14 +438,26 @@ def sync_active_student(username: str) -> StudentProfile:
             subtopic=doc["title"],
             location=doc["location"]
         )
+        if doc["topic"] not in student.topic_masteries:
+            student.topic_masteries[doc["topic"]] = TopicMastery(doc["topic"], 0.0, 0, 0, 2.0)
 
     return student
 
 current_student = sync_active_student(st.session_state.current_username)
 
-# Calculate overall BKT mastery
-t_masteries = [tm.mastery_prob for tm in current_student.topic_masteries.values()]
-avg_mastery = sum(t_masteries) / max(1, len(t_masteries))
+# Calculate real BKT mastery: only counts topics where student has actually practiced!
+active_masteries = [tm.mastery_prob for tm in current_student.topic_masteries.values() if tm.interactions_count > 0]
+total_practiced = sum(tm.interactions_count for tm in current_student.topic_masteries.values())
+if active_masteries and total_practiced > 0:
+    avg_mastery = sum(active_masteries) / len(active_masteries)
+    mastery_display = f"{int(avg_mastery * 100)}%"
+    mastery_sub = f"{total_practiced} questions practiced"
+    mastery_bar_width = int(avg_mastery * 100)
+else:
+    avg_mastery = 0.0
+    mastery_display = "0%"
+    mastery_sub = "Fresh Profile — 0 questions practiced"
+    mastery_bar_width = 0
 
 # State containers
 if "active_quiz" not in st.session_state:
@@ -419,32 +498,33 @@ with st.sidebar:
         "judge": "Hackathon Judge (Demo)",
         "guest": "Guest Student"
     }
-    selected_u = st.selectbox(
-        "Active Learner:",
-        options=list(profile_options.keys()),
-        format_func=lambda k: profile_options[k],
-        index=list(profile_options.keys()).index(st.session_state.current_username) if st.session_state.current_username in profile_options else 0
-    )
-    if selected_u != st.session_state.current_username:
-        st.session_state.current_username = selected_u
-        st.session_state.active_quiz = []
-        st.session_state.quiz_attempts = {}
-        st.session_state.mock_exam_questions = []
-        st.session_state.mock_exam_report = None
-        st.session_state.cram_active_course = None
-        st.session_state.cram_quiz_questions = []
-        st.session_state.cram_quiz_submitted = False
-        st.session_state.cram_quiz_results = None
-        st.session_state.cram_remediated_topics = set()
+    current_label = profile_options.get(st.session_state.current_username, st.session_state.current_username.title())
+    st.info(f"**Logged in as:** `{current_label}`")
+
+    if st.button("🚪 Switch Profile / Log Out", use_container_width=True):
+        st.session_state.current_username = None
         st.rerun()
 
+    # Special demo calibration tool for judge evaluation
+    if st.session_state.current_username == "judge":
+        with st.expander("🧪 Judge Tools: Load Demo Scores"):
+            st.caption("Load simulated mid-semester calibration for evaluation:")
+            if st.button("Apply Demo Scores (65% Baseline)"):
+                learner.apply_diagnostic_result(current_student, {
+                    "Supervised Learning": 0.75, "Classification": 0.70, "Model Evaluation & Regularization": 0.65,
+                    "Deep Learning": 0.60, "Unsupervised Learning": 0.55, "Search & Heuristics": 0.80
+                })
+                for t, tm in current_student.topic_masteries.items():
+                    UserStorage.save_mastery("judge", t, tm.mastery_prob, 4, 3, 3.5)
+                st.success("Loaded demo calibration!")
+                st.rerun()
 
     st.caption(f"🔒 **Isolated Data Active**: All notes, BKT scores, chats, and quiz logs are strictly private to `{st.session_state.current_username}`.")
 
     st.metric(
         label="Overall Mastery P(L)",
-        value=f"{int(avg_mastery * 100)}%",
-        delta=f"{current_student.education_level} Level"
+        value=mastery_display,
+        delta=mastery_sub
     )
 
     lang_mode = st.radio("Language Mode:", ["English", "Hinglish (Bilingual)"], horizontal=True)
@@ -500,18 +580,19 @@ with kpi1:
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">👤 Active Student Mastery</div>
-        <div class="kpi-value">{int(avg_mastery * 100)}% <span style="font-size:0.85rem;color:#2563eb;">P(L)</span></div>
-        <div class="kpi-sub">{current_student.name}</div>
-        <div class="progress-track"><div class="progress-fill" style="width:{int(avg_mastery * 100)}%;"></div></div>
+        <div class="kpi-value">{mastery_display} <span style="font-size:0.85rem;color:#2563eb;">P(L)</span></div>
+        <div class="kpi-sub">{current_student.name} • {mastery_sub}</div>
+        <div class="progress-track"><div class="progress-fill" style="width:{mastery_bar_width}%;"></div></div>
     </div>
     """, unsafe_allow_html=True)
 
 with kpi2:
+    my_doc_count = len(UserStorage.get_user_documents_grouped(st.session_state.current_username))
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">📚 Knowledge Base</div>
         <div class="kpi-value">{len(kb.units)} <span style="font-size:0.85rem;color:#0284c7;">Units</span></div>
-        <div class="kpi-sub">5 Videos • 3 Books • Slides & Notes</div>
+        <div class="kpi-sub">Preloaded (CS 229 & 188) + {my_doc_count} Your Documents</div>
         <div class="progress-track"><div class="progress-fill" style="width:100%;"></div></div>
     </div>
     """, unsafe_allow_html=True)
@@ -519,19 +600,19 @@ with kpi2:
 with kpi3:
     st.markdown(f"""
     <div class="kpi-card">
-        <div class="kpi-label">📝 Verified Question Bank</div>
+        <div class="kpi-label">📝 Adaptive Question Bank</div>
         <div class="kpi-value">{len(assessment.question_bank)} <span style="font-size:0.85rem;color:#059669;">Items</span></div>
-        <div class="kpi-sub">MCQ • Short-Ans • Numerical</div>
-        <div class="progress-track"><div class="progress-fill" style="width:95%;"></div></div>
+        <div class="kpi-sub">MCQs • Short-Answer • Numerical Problems</div>
+        <div class="progress-track"><div class="progress-fill" style="width:100%;"></div></div>
     </div>
     """, unsafe_allow_html=True)
 
 with kpi4:
     st.markdown("""
     <div class="kpi-card">
-        <div class="kpi-label">🛡️ Source Grounding</div>
+        <div class="kpi-label">🛡️ Source Grounding Guard</div>
         <div class="kpi-value">100% <span style="font-size:0.85rem;color:#7c3aed;">Fidelity</span></div>
-        <div class="kpi-sub">Strict Out-of-Syllabus Guard</div>
+        <div class="kpi-sub">Timestamped Videos & PDF Pages</div>
         <div class="progress-track"><div class="progress-fill" style="width:100%;"></div></div>
     </div>
     """, unsafe_allow_html=True)
@@ -571,8 +652,14 @@ with tab_ingest:
         st.markdown("#### 📤 Upload Your Material")
         input_type = st.radio("Select Input Source:", ["📄 PDF Document", "📝 Text Notes / Lecture Summary", "🎥 Video Transcript (Timestamped)"], horizontal=True)
 
-        assigned_topic = st.selectbox("Assign to Course Topic:", list(kb.topics.keys()), key="ingest_top")
-        doc_title = st.text_input("Document / Lecture Title:", "My Stanford Lecture Notes")
+        sub_choice = st.radio("Course / Subject:", ["Choose Existing Subject", "➕ Add New Subject / Course"], horizontal=True, key="sub_choice_radio")
+        if sub_choice == "Choose Existing Subject":
+            assigned_topic = st.selectbox("Select Existing Subject:", list(kb.topics.keys()), key="ingest_top")
+        else:
+            new_sub_input = st.text_input("New Subject / Course Name:", placeholder="e.g. Operating Systems, Data Structures, Computer Networks", key="ingest_new_top")
+            assigned_topic = new_sub_input.strip() if new_sub_input.strip() else "General Course Materials"
+
+        doc_title = st.text_input("Document / Lecture Title:", "My Lecture Notes")
 
         file_to_process = None
         raw_text_to_process = ""
@@ -591,6 +678,13 @@ with tab_ingest:
         if st.button("🚀 Ingest, Simplify & Generate AI Quiz Questions", type="primary", use_container_width=True):
             content_for_simplification = ""
             created_units_list = []
+
+            # Ensure custom subject is registered in current student profile and KB
+            if assigned_topic not in kb.topics:
+                kb.topics[assigned_topic] = []
+            if assigned_topic not in current_student.topic_masteries:
+                current_student.topic_masteries[assigned_topic] = TopicMastery(topic=assigned_topic, mastery_prob=0.0, interactions_count=0, correct_count=0, stability_days=2.0)
+                UserStorage.save_mastery(st.session_state.current_username, assigned_topic, 0.0, 0, 0, 2.0)
 
             with st.spinner("Processing multimodal document, extracting citations & inferring DAG..."):
                 if file_to_process is not None:
@@ -617,23 +711,34 @@ with tab_ingest:
                     )
                     simp["generated_quiz_count"] = len(generated_qs)
                     st.session_state.simplified_notes_result = simp
-                    st.success(f"Ingested '{doc_title}'! Created {len(created_units_list)} knowledge units & {len(generated_qs)} quiz questions.")
+                    st.success(f"Ingested '{doc_title}'! Created {len(created_units_list)} knowledge units & {len(generated_qs)} quiz questions in subject '{assigned_topic}'.")
                     st.rerun()
 
     with ingest_col2:
         st.markdown(f"#### 📁 My Uploaded Documents ({st.session_state.current_username.title()})")
-        user_docs = UserStorage.get_user_documents(st.session_state.current_username)
-        if user_docs:
-            d_rows = []
-            for d in user_docs[:6]:
-                d_rows.append({
-                    "Title": d["title"],
-                    "Topic": d["topic"],
-                    "Source Type": d["source_type"],
-                    "Location": d["location"]
-                })
-            st.dataframe(pd.DataFrame(d_rows), use_container_width=True)
-            st.caption(f"🔒 These {len(user_docs)} documents are private to your profile and not visible to other users.")
+        grouped_docs = UserStorage.get_user_documents_grouped(st.session_state.current_username)
+        if grouped_docs:
+            for g_doc in grouped_docs:
+                g_col_info, g_col_act = st.columns([3.5, 1])
+                with g_col_info:
+                    st.markdown(f"""
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:8px;">
+                        <strong>📄 {g_doc['title']}</strong><br>
+                        <small style="color:#64748b;">
+                            📌 Subject: <b>{g_doc['topic']}</b> &bull; 
+                            🏷️ Type: <i>{g_doc['source_type']}</i> &bull; 
+                            📑 {g_doc['page_count']} section(s) chunked
+                        </small>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with g_col_act:
+                    st.write("")
+                    if st.button("🗑️ Delete", key=f"del_doc_{g_doc['title']}_{g_doc['topic']}", use_container_width=True):
+                        UserStorage.delete_user_document(st.session_state.current_username, g_doc["title"])
+                        sync_active_student(st.session_state.current_username)
+                        st.success(f"Deleted '{g_doc['title']}'!")
+                        st.rerun()
+            st.caption(f"🔒 These {len(grouped_docs)} document(s) are private to `{st.session_state.current_username}` and isolated from other profiles.")
         else:
             st.info("No custom files uploaded yet. Upload a PDF or paste notes to enrich your knowledge base!")
 

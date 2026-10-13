@@ -58,11 +58,13 @@ class CourseKnowledgeBase:
         self.topics: Dict[str, List[str]] = {}
         self._load_comprehensive_curriculum()
         self._core_units = dict(self.units)
+        self._core_topics = {k: list(v) for k, v in self.topics.items()}
         self.auto_infer_prerequisite_dag()
 
     def reset_to_core_units(self) -> None:
         """Restores knowledge base to the pre-loaded university curriculum, clearing temporary/user units."""
         self.units = dict(self._core_units)
+        self.topics = {k: list(v) for k, v in self._core_topics.items()}
         self.auto_infer_prerequisite_dag()
 
 
@@ -365,18 +367,25 @@ class CourseKnowledgeBase:
     def ingest_custom_document(self, title: str, text: str, source_type: str, topic: str, subtopic: str, location: str) -> ContentUnit:
         """Dynamically ingests user uploaded files and adds them into the live knowledge base."""
         uid = f"custom_{len(self.units) + 1}_{re.sub(r'[^a-zA-Z0-9]', '', title)[:8]}"
+        clean_topic = topic.strip() if topic and topic.strip() else "General Course Materials"
+        if clean_topic not in self.topics:
+            self.topics[clean_topic] = []
+        if title not in self.topics[clean_topic]:
+            self.topics[clean_topic].append(title)
+
         unit = ContentUnit(
             unit_id=uid,
             source_type=source_type,
             source_title=title,
             location=location,
-            topic=topic or "General Course Materials",
+            topic=clean_topic,
             subtopic=subtopic or title,
             content_text=text
         )
         self.add_unit(unit)
         self.auto_infer_prerequisite_dag()
         return unit
+
 
     def ingest_uploaded_file(self, file_obj: Any, filename: str, topic: str = "Custom Uploaded Material") -> List[ContentUnit]:
         """Reads an uploaded PDF, TXT, or transcript file and parses into cited knowledge units."""

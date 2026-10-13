@@ -206,3 +206,27 @@ class UserStorage:
         rows = cur.fetchall()
         conn.close()
         return [dict(r) for r in rows]
+
+    @staticmethod
+    def get_user_documents_grouped(username: str) -> List[Dict[str, Any]]:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+        SELECT title, topic, source_type, MIN(timestamp) as uploaded_at, COUNT(*) as page_count
+        FROM user_documents
+        WHERE username = ?
+        GROUP BY title, topic, source_type
+        ORDER BY uploaded_at DESC
+        """, (username,))
+        rows = cur.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def delete_user_document(username: str, title: str) -> None:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM user_documents WHERE username = ? AND title = ?", (username, title))
+        conn.commit()
+        conn.close()
+

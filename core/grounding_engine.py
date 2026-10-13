@@ -61,10 +61,13 @@ class GroundingEngine:
         self,
         query: str,
         student: Optional[StudentProfile] = None,
+        student_level: str = "Undergraduate",
         language_mode: str = "English",
         allow_outside_knowledge: bool = True,
-        gemini_api_key: str = ""
+        gemini_api_key: str = "",
+        **kwargs: Any
     ) -> Dict[str, Any]:
+
         """Synthesizes a source-cited explanation or cleanly segregates outside knowledge."""
         is_in_scope, confidence, retrieved_units = self.verify_query_scope(query)
 
@@ -170,9 +173,10 @@ class GroundingEngine:
             try:
                 import requests
                 context_blob = "\n".join([f"[{u.source_title} | {u.location}]: {u.content_text}" for u in retrieved_units])
+                m_prob = student.topic_masteries[primary_unit.topic].mastery_prob if student and primary_unit.topic in student.topic_masteries else 0.5
                 prompt = (
                     f"You are OmniStudy AI, an adaptive source-grounded university tutor. Answer the student's question "
-                    f"strictly using the following course material context. Student mastery: {student.topic_masteries.get(primary_unit.topic, 0.5) if student else 'Undergraduate'}. "
+                    f"strictly using the following course material context. Student mastery: {m_prob:.2f}. "
                     f"Language: {language_mode}. Cite exact locations in brackets.\n\n"
                     f"Course Context:\n{context_blob}\n\nQuestion: {query}"
                 )
