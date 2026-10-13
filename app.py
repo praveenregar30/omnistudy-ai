@@ -393,6 +393,16 @@ if "mock_exam_report" not in st.session_state:
     st.session_state.mock_exam_report = None
 if "simplified_notes_result" not in st.session_state:
     st.session_state.simplified_notes_result = None
+if "cram_active_course" not in st.session_state:
+    st.session_state.cram_active_course = None
+if "cram_quiz_questions" not in st.session_state:
+    st.session_state.cram_quiz_questions = []
+if "cram_quiz_submitted" not in st.session_state:
+    st.session_state.cram_quiz_submitted = False
+if "cram_quiz_results" not in st.session_state:
+    st.session_state.cram_quiz_results = None
+if "cram_remediated_topics" not in st.session_state:
+    st.session_state.cram_remediated_topics = set()
 
 # =====================================================================
 # SIDEBAR: Profile Switching, Data Isolation & Quick Actions
@@ -421,7 +431,13 @@ with st.sidebar:
         st.session_state.quiz_attempts = {}
         st.session_state.mock_exam_questions = []
         st.session_state.mock_exam_report = None
+        st.session_state.cram_active_course = None
+        st.session_state.cram_quiz_questions = []
+        st.session_state.cram_quiz_submitted = False
+        st.session_state.cram_quiz_results = None
+        st.session_state.cram_remediated_topics = set()
         st.rerun()
+
 
     st.caption(f"🔒 **Isolated Data Active**: All notes, BKT scores, chats, and quiz logs are strictly private to `{st.session_state.current_username}`.")
 
@@ -521,17 +537,19 @@ with kpi4:
     """, unsafe_allow_html=True)
 
 # =====================================================================
-# SEVEN MAIN TABS (Ingestion First Step As Requested)
+# EIGHT MAIN TABS (Ingestion First & 48-Hour Cram Mode Included)
 # =====================================================================
-tab_ingest, tab_chat, tab_assessment, tab_learner, tab_dag, tab_revision, tab_eval = st.tabs([
+tab_ingest, tab_chat, tab_assessment, tab_cram, tab_learner, tab_dag, tab_revision, tab_eval = st.tabs([
     "📥 1. Multimodal Ingestion",
     "💬 2. Grounded AI Tutor",
     "📝 3. Adaptive Assessments & Mock Exam",
-    "🧠 4. Cognitive Dashboard (BKT)",
-    "🗺️ 5. Course Prerequisite DAG",
-    "⚡ 6. Revision Kit & Scheduler",
-    "📊 7. Benchmarks & Evaluation"
+    "🔥 4. 48-Hour Exam Cram Mode",
+    "🧠 5. Cognitive Dashboard (BKT)",
+    "🗺️ 6. Course Prerequisite DAG",
+    "⚡ 7. Revision Kit & Scheduler",
+    "📊 8. Benchmarks & Evaluation"
 ])
+
 
 # =====================================================================
 # TAB 1: MULTIMODAL INGESTION PIPELINE (First Step)
@@ -960,9 +978,231 @@ with tab_assessment:
                             f"- 📈 **Updated BKT Mastery in {f_topic}:** `{int(new_m * 100)}%`")
 
 # =====================================================================
-# TAB 4: COGNITIVE DASHBOARD (BKT & FORGETTING CURVE)
+# TAB 4: 48-HOUR EMERGENCY EXAM CRAM MODE & WEAK-TOPIC REMEDIATION
+# =====================================================================
+with tab_cram:
+    st.markdown("### 🔥 48-Hour Emergency Exam Cram Mode (Teach From Scratch & Fix Weak Topics)")
+    st.caption("Got an exam in 2 days and haven't studied? Upload your lecture notes or pick a topic. OmniStudy will teach you the core concepts from scratch, run a diagnostic blitz quiz, separate your weak vs strong topics, and re-teach weak topics deeply!")
+
+    cram_c1, cram_c2, cram_c3 = st.columns([1, 1.5, 1])
+    with cram_c1:
+        time_left = st.selectbox("⏳ Time Until Exam:", ["🔥 48 Hours (2 Days)", "⚡ 24 Hours (1 Day)", "📅 72 Hours (3 Days)"], index=0)
+        hours_num = 48 if "48" in time_left else (24 if "24" in time_left else 72)
+    with cram_c2:
+        topic_options = ["All Course Topics"] + list(kb.topics.keys()) + ["📄 Custom Uploaded Material"]
+        cram_scope = st.selectbox("🎯 Target Exam Scope:", topic_options, index=0)
+    with cram_c3:
+        cram_lang = st.radio("Tutoring Language:", ["English", "🇮🇳 Hinglish (Bilingual)"], horizontal=True, key="cram_lang_radio")
+
+    # Optional quick paste / upload for the cram session
+    custom_cram_notes = ""
+    if cram_scope == "📄 Custom Uploaded Material":
+        with st.expander("📤 Paste or Upload Custom Notes for this Cram Session", expanded=True):
+            cram_file = st.file_uploader("Upload Notes PDF for Cramming:", type=["pdf"], key="cram_uploader")
+            cram_text = st.text_area("Or Paste Notes Text / Syllabus Summary:", height=100, placeholder="Paste your lecture notes or exam syllabus summary here...", key="cram_text_area")
+            if cram_file is not None:
+                units = kb.ingest_uploaded_file(cram_file, cram_file.name, topic="Exam Cram Material")
+                custom_cram_notes = " ".join([u.content_text for u in units])
+            elif cram_text.strip():
+                u = kb.ingest_custom_document("Exam Cram Notes", cram_text.strip(), "slide_deck", "Exam Cram Material", "Exam Cram", "Cram p. 1")
+                custom_cram_notes = cram_text.strip()
+
+    if st.button("🚀 Start High-Yield Crash Course (Teach Me from Scratch)", type="primary", use_container_width=True):
+        target_t = list(kb.topics.keys())[0] if cram_scope in ["All Course Topics", "📄 Custom Uploaded Material"] else cram_scope
+        crash_data = enhancements.generate_emergency_crash_course(
+            topic=target_t,
+            raw_notes=custom_cram_notes,
+            hours_left=hours_num,
+            lang_mode=cram_lang
+        )
+        st.session_state.cram_active_course = crash_data
+        st.session_state.cram_quiz_questions = []
+        st.session_state.cram_quiz_submitted = False
+        st.session_state.cram_quiz_results = None
+        st.session_state.cram_remediated_topics = set()
+        st.rerun()
+
+    # Step 1: Render High-Yield Crash Course
+    if st.session_state.cram_active_course:
+        cc = st.session_state.cram_active_course
+        st.markdown("---")
+        st.markdown(f"#### 📖 Step 1: High-Yield Crash Course — *{cc['title']}*")
+        st.markdown(cc["intro"])
+
+        # Voice audio crash course player
+        render_voice_player(cc["audio_script"], button_label="🔊 Listen to 3-Minute Crash Course Audio", key_suffix="cram_crash_audio")
+
+        c_col1, c_col2 = st.columns(2)
+        with c_col1:
+            st.markdown("##### 🔑 Top Must-Know Exam Concepts:")
+            for kc in cc["key_concepts"]:
+                st.markdown(f"- {kc}")
+
+            st.markdown("##### 📍 Verified Source Reference:")
+            for src in cc["sources"]:
+                st.caption(f"• {src}")
+
+        with c_col2:
+            st.markdown("##### 📐 Essential Formulas to Write on Exam:")
+            for f in cc["formulas"]:
+                st.latex(f)
+
+            st.markdown("##### ⏳ 48-Hour Exam Survival Timeline:")
+            for b in cc["schedule_blocks"]:
+                st.markdown(f"**{b['time']}** [{b['urgency']} Urgency]\n*{b['task']}*")
+
+        st.markdown("---")
+        # Step 2: Diagnostic Blitz Quiz
+        st.markdown("#### ⚡ Step 2: Diagnostic Blitz Quiz (Identify Your Weak vs Strong Topics)")
+        st.caption("A quick 4-question test to evaluate your readiness. OmniStudy will analyze your answers to separate strong topics from high-risk weak topics!")
+
+        if not st.session_state.cram_quiz_questions:
+            if st.button("🎯 Generate Blitz Quiz for this Topic", type="primary"):
+                quiz_t = None if cram_scope in ["All Course Topics", "📄 Custom Uploaded Material"] else cram_scope
+                st.session_state.cram_quiz_questions = assessment.select_adaptive_quiz(
+                    current_student, num_questions=4, target_topic=quiz_t
+                )
+                st.session_state.cram_quiz_submitted = False
+                st.session_state.cram_quiz_results = None
+                st.rerun()
+
+        if st.session_state.cram_quiz_questions and not st.session_state.cram_quiz_submitted:
+            cram_inputs = {}
+            for idx, q in enumerate(st.session_state.cram_quiz_questions):
+                st.markdown(f"##### Q{idx+1} [{q.question_type.upper()}]: {q.question_text}")
+                st.markdown(f"<span class='citation-pill'>📌 Topic: {q.topic}</span> <span class='citation-pill'>⚡ Difficulty: {q.difficulty_label}</span>", unsafe_allow_html=True)
+
+                if q.question_type == "MCQ":
+                    cram_inputs[q.question_id] = st.radio(f"Select answer Q{idx+1}:", options=list(range(len(q.options))), format_func=lambda i, opts=q.options: opts[i], key=f"cram_q_opt_{q.question_id}")
+                elif q.question_type == "numerical":
+                    cram_inputs[q.question_id] = st.text_input(f"Calculated answer for Q{idx+1}:", key=f"cram_q_num_{q.question_id}", placeholder="e.g. 2.0")
+                else:
+                    cram_inputs[q.question_id] = st.text_area(f"Written explanation for Q{idx+1}:", key=f"cram_q_sa_{q.question_id}", placeholder="Your answer...", height=60)
+                st.markdown("---")
+
+            if st.button("🏁 Submit Blitz Quiz & Find My Weak Topics", type="primary", use_container_width=True):
+                attempts_list = []
+                strong = set()
+                weak = set()
+                weak_details = {}
+
+                for q in st.session_state.cram_quiz_questions:
+                    ans_val = cram_inputs.get(q.question_id, "")
+                    att = assessment.grade_attempt(q, ans_val)
+                    attempts_list.append(att)
+
+                    # Update BKT
+                    learner.update_after_assessment_item(current_student, q.topic, att.is_correct, q.question_id, q.difficulty)
+                    UserStorage.log_quiz_attempt(st.session_state.current_username, q.question_id, q.question_text, q.question_type, q.topic, str(ans_val), q.correct_answer, att.is_correct)
+                    tm = current_student.topic_masteries[q.topic]
+                    UserStorage.save_mastery(st.session_state.current_username, q.topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+
+                    if att.is_correct:
+                        strong.add(q.topic)
+                    else:
+                        weak.add(q.topic)
+                        weak_details[q.topic] = {
+                            "question": q.question_text,
+                            "your_answer": str(ans_val),
+                            "correct_answer": q.correct_answer,
+                            "misconception": q.misconception_analysis,
+                            "explanation": att.cited_feedback
+                        }
+
+                pure_strong = list(strong - weak)
+                pure_weak = list(weak)
+
+                correct_c = sum(1 for a in attempts_list if a.is_correct)
+                score_pct = int(round((correct_c / len(attempts_list)) * 100))
+
+                st.session_state.cram_quiz_results = {
+                    "score": score_pct,
+                    "correct": correct_c,
+                    "total": len(attempts_list),
+                    "strong_topics": pure_strong or (list(strong)[:1] if strong else []),
+                    "weak_topics": pure_weak or (["Review Core Concepts"] if score_pct < 100 else []),
+                    "weak_details": weak_details,
+                    "attempts": attempts_list
+                }
+                st.session_state.cram_quiz_submitted = True
+                st.rerun()
+
+        # Step 3: Weak vs Strong Topic Diagnostic Breakdown & "Teach Weak Topics More"
+        if st.session_state.cram_quiz_results:
+            q_res = st.session_state.cram_quiz_results
+            st.markdown(f"### 📊 Blitz Quiz Results: {q_res['score']}% ({q_res['correct']} / {q_res['total']} Correct)")
+
+            col_str, col_wk = st.columns(2)
+            with col_str:
+                st.markdown("#### 🟢 Strong Topics (Safe for Exam!)")
+                if q_res["strong_topics"]:
+                    for st_topic in q_res["strong_topics"]:
+                        st.success(f"✅ **{st_topic}**: 100% Correct — You have demonstrated mastery! Move on to your weaker topics.")
+                else:
+                    st.info("No completely strong topics yet. Complete the remediation below to build confidence!")
+
+            with col_wk:
+                st.markdown("#### 🔴 Critical Weak Topics (Exam Hazard!)")
+                if q_res["weak_topics"]:
+                    for wk_topic in q_res["weak_topics"]:
+                        is_fixed = wk_topic in st.session_state.cram_remediated_topics
+                        status_label = "🟢 Remediation Complete!" if is_fixed else "⚠️ High Exam Risk — Needs Remediation"
+                        if is_fixed:
+                            st.success(f"🎉 **{wk_topic}**: {status_label}")
+                        else:
+                            st.error(f"❌ **{wk_topic}**: {status_label}")
+                else:
+                    st.success("🌟 All tested topics are mastered! You are in great shape for the exam.")
+
+            st.markdown("---")
+            # Step 4: Teach Weak Topics More (Intensive Remediation Module)
+            st.markdown("### 🎯 Step 3: Teach Weak Topics More (Deep-Dive Remediation)")
+            st.caption("The AI re-teaches each concept you struggled with, explains the exact trap to avoid, and gives you a follow-up check to turn your score from Red 🔴 to Green 🟢!")
+
+            if q_res["weak_topics"]:
+                for wk_topic in q_res["weak_topics"]:
+                    with st.expander(f"🔴 Deep-Dive Re-Teaching: {wk_topic}", expanded=True):
+                        det = q_res["weak_details"].get(wk_topic, {})
+                        miscon = det.get("misconception", "")
+                        remed = enhancements.generate_weak_topic_remediation(
+                            topic=wk_topic,
+                            misconception_tag=miscon,
+                            student_level=current_student.education_level,
+                            lang_mode=cram_lang
+                        )
+                        st.markdown(remed["remediation_markdown"])
+                        st.caption(f"📍 Source Reference: {remed['source_ref']}")
+
+                        st.markdown("##### ⚡ Rapid Concept Check (Prove You Fixed It):")
+                        chk = remed["practice_check"]
+                        chk_ans = st.radio(chk["question"], options=list(range(len(chk["options"]))), format_func=lambda i, opts=chk["options"]: opts[i], key=f"remed_chk_{wk_topic}")
+
+                        if st.button(f"✅ Verify Understanding of {wk_topic}", key=f"btn_verify_{wk_topic}"):
+                            if chk_ans == chk["correct_index"]:
+                                st.session_state.cram_remediated_topics.add(wk_topic)
+                                if wk_topic in current_student.topic_masteries:
+                                    current_student.topic_masteries[wk_topic].mastery_prob = min(0.92, current_student.topic_masteries[wk_topic].mastery_prob + 0.25)
+                                    tm = current_student.topic_masteries[wk_topic]
+                                    UserStorage.save_mastery(st.session_state.current_username, wk_topic, tm.mastery_prob, tm.interactions_count + 1, tm.correct_count + 1, tm.stability_days + 1.0)
+                                st.success(f"🎉 **Mastery Unlocked!** You nailed the concept check for **{wk_topic}**! Topic status updated to 🟢 Mastered!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Not quite. Review the derivation above and try again.")
+            else:
+                st.info("You don't have any weak topics in this session! Click below to try another topic or download your exam cheat sheet.")
+
+            if st.button("🔄 Retake Blitz Quiz or Pick Another Topic"):
+                st.session_state.cram_quiz_questions = []
+                st.session_state.cram_quiz_submitted = False
+                st.session_state.cram_quiz_results = None
+                st.session_state.cram_active_course = None
+                st.rerun()
+
+# =====================================================================
+# TAB 5: COGNITIVE DASHBOARD (BKT & FORGETTING CURVE)
 # =====================================================================
 with tab_learner:
+
     st.markdown("### 🧠 Cognitive Learner Dashboard: Bayesian Knowledge Tracing")
     st.caption("Real-time posterior probability estimation P(L_t), Item Response Theory (IRT) difficulty calibration, and Ebbinghaus forgetting retention decay.")
 
@@ -1005,7 +1245,7 @@ with tab_learner:
             st.rerun()
 
 # =====================================================================
-# TAB 5: COURSE PREREQUISITE DAG FLOW
+# TAB 6: COURSE PREREQUISITE DAG FLOW
 # =====================================================================
 with tab_dag:
     st.markdown("### 🗺️ Visual Course Flow & Prerequisite Dependency DAG")
@@ -1024,7 +1264,7 @@ with tab_dag:
         st.markdown(r"🔴 **Red:** Remediation Needed ($P(L) < 0.40$)")
 
 # =====================================================================
-# TAB 6: SMART REVISION KIT & EXAM SCHEDULER
+# TAB 7: SMART REVISION KIT & EXAM SCHEDULER
 # =====================================================================
 with tab_revision:
     st.markdown("### ⚡ High-Yield Revision Kit & Spaced Repetition Exam Scheduler")
@@ -1072,9 +1312,10 @@ with tab_revision:
     )
 
 # =====================================================================
-# TAB 7: RIGOROUS SCIENTIFIC BENCHMARKS (RAGAS & BASELINES)
+# TAB 8: RIGOROUS SCIENTIFIC BENCHMARKS (RAGAS & BASELINES)
 # =====================================================================
 with tab_eval:
+
     st.markdown("### 📊 Rigorous Benchmarks & System Evaluation (Track D)")
     st.caption("Quantitative verification across 60 balanced Golden Test queries, framework RAGAS metrics, modality breakdowns, and non-circular baseline comparisons.")
 

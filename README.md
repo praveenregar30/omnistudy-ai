@@ -25,9 +25,15 @@ Students struggle when learning across fragmented materials — video lectures, 
    - **Numerical Problems** computed and verified with Python mathematical tolerances ($\pm 0.01$).
    - **Timed Mock Exam** with an automated **Post-Assessment Diagnostic Report** mapping learning gaps to timestamped review links.
    - **Feynman Teach-Back Challenge** evaluating intuitive conceptual clarity.
-4. **Bayesian Knowledge Tracing & Memory Decay (Tab 4):** Real-time probabilistic mastery estimation $P(L_t)$ per concept, Item Response Theory (IRT) difficulty calibration, and Ebbinghaus forgetting curve retention decay $R(t) = e^{-\Delta t / S}$.
-5. **Private User Profiles & Data Isolation:** Built with an embedded SQLite persistence layer (`omnistudy.db`); each student's mastery, chats, notes, and quiz history are strictly isolated without cross-user leakage.
-6. **Rigorous Scientific Evaluation (Tab 7):** Validated on a **60-query balanced Golden Test Set** across RAGAS metrics (Recall: 0.882, Precision: 0.475, Relevancy: 0.818, Faithfulness: 0.745, Refusal: 1.000) and an independent student simulation proving Adaptive BKT converges **+22% faster** than random practice and **+16% faster** than fixed sequential curricula.
+4. **48-Hour Emergency Exam Cram Mode & Weak-Topic Remediation (Tab 4):**
+   - Designed for students with an exam in 2 days who haven't studied yet: simply select a topic or paste/upload notes to get an intensive crash course from scratch with spoken audio briefs and hour-by-hour 48h countdown schedule.
+   - Diagnostic Blitz Quiz automatically categorizes **Strong Topics 🟢** vs **Critical Weak Topics 🔴**.
+   - **Targeted Deep Remediation:** AI re-teaches weak topics deeply with misconception breakdowns and immediate concept-check verifications that update BKT mastery in real-time.
+5. **Bayesian Knowledge Tracing & Memory Decay (Tab 5):** Real-time probabilistic mastery estimation $P(L_t)$ per concept, Item Response Theory (IRT) difficulty calibration, and Ebbinghaus forgetting curve retention decay $R(t) = e^{-\Delta t / S}$.
+6. **Course Prerequisite DAG & Spaced Repetition (Tabs 6 & 7):** Visual Mermaid graph dynamically colored by BKT mastery, plus flashcards, audio briefs, and exam timetable.
+7. **Private User Profiles & Data Isolation:** Built with an embedded SQLite persistence layer (`omnistudy.db`); each student's mastery, chats, notes, and quiz history are strictly isolated without cross-user leakage.
+8. **Rigorous Scientific Evaluation (Tab 8):** Validated on a **60-query balanced Golden Test Set** across RAGAS metrics (Recall: 0.882, Precision: 0.475, Relevancy: 0.818, Faithfulness: 0.745, Refusal: 1.000) and an independent student simulation proving Adaptive BKT converges **+22% faster** than random practice and **+16% faster** than fixed sequential curricula.
+
 
 ---
 

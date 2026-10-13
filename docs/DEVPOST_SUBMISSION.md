@@ -31,11 +31,16 @@ OmniStudy AI transforms raw university course assets and uploaded notes into an 
    - **Numerical / Computational Problems** computed and verified with Python mathematical tolerances ($\pm 0.01$).
    - **Timed Mock Exam Mode** featuring a 5-question timed test paper, timer countdown, and an automated **Post-Assessment Diagnostic Report** mapping learning gaps to timestamped review locations.
    - **Feynman Teach-Back Challenge** evaluating conceptual clarity when students explain concepts in their own words.
-5. **Bayesian Knowledge Tracing (BKT) & Learner Modeling (Tab 4):** Maintains an evolving cognitive state of the student. Per-topic mastery probabilities $P(L_t)$ update mathematically after every quiz attempt and conversation using Bayesian posterior calculations and transition probabilities.
-6. **Ebbinghaus Forgetting Curve & Spaced Repetition (Tabs 4 & 6):** Models memory stability $S$ and retention decay $R(t) = e^{-\Delta t / S}$, generating personalized exam study calendars based on days until the final exam.
-7. **Complete User Data Isolation & Persistence:** Powered by SQLite (`omnistudy.db`), ensuring each learner (e.g. Praveen Regar, Guest Student, Hackathon Judge) has strictly private notes, chat history, BKT mastery scores, and quiz attempt logs.
-8. **Interactive Visual Prerequisite DAG (Tab 5):** Graphically displays course concept dependencies dynamically color-coded by the active student's live mastery (🟢 Mastered $\ge 0.70$, 🟡 Developing $0.40 - 0.70$, 🔴 Priority Review $< 0.40$).
-9. **Smart Revision Kit & Hinglish Bilingual Mode (Tab 6):** Instant flashcards, spoken 2-minute audio brief scripts (with Web Speech voice playback), and 1-click markdown exam cheat-sheet download.
+5. **48-Hour Emergency Exam Cram Mode & Weak-Topic Deep Remediation (Tab 4):**
+   - Built for students facing an exam in 2 days who haven't studied yet: select a course topic or paste/upload notes to launch an intensive crash course from scratch with spoken audio briefs and hour-by-hour 48-hour survival schedule.
+   - Runs a 4-question Diagnostic Blitz Quiz that automatically separates **Strong Topics 🟢** (exam-ready) from **Critical Weak Topics 🔴** (exam hazards).
+   - **Targeted Deep Remediation:** AI re-teaches weak topics deeply with misconception breakdowns, exam tips, and follow-up concept checks that update BKT mastery in real-time upon mastery.
+6. **Bayesian Knowledge Tracing (BKT) & Learner Modeling (Tab 5):** Maintains an evolving cognitive state of the student. Per-topic mastery probabilities $P(L_t)$ update mathematically after every quiz attempt and conversation using Bayesian posterior calculations and transition probabilities.
+7. **Interactive Visual Prerequisite DAG (Tab 6):** Graphically displays course concept dependencies dynamically color-coded by the active student's live mastery (🟢 Mastered $\ge 0.70$, 🟡 Developing $0.40 - 0.70$, 🔴 Priority Review $< 0.40$).
+8. **Smart Revision Kit & Spaced Repetition (Tab 7):** Ebbinghaus forgetting curve retention decay $R(t) = e^{-\Delta t / S}$, instant flashcards, spoken 2-minute audio brief scripts (Web Speech voice playback), and 1-click markdown exam cheat-sheet download.
+9. **Complete User Data Isolation & Persistence:** Powered by SQLite (`omnistudy.db`), ensuring each learner (e.g. Praveen Regar, Guest Student, Hackathon Judge) has strictly private notes, chat history, BKT mastery scores, and quiz attempt logs.
+10. **Scientific Evaluation Benchmarks (Tab 8):** Quantitative RAGAS framework metrics, modality breakdowns, and non-circular baseline simulation.
+
 
 ---
 
