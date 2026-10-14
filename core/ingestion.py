@@ -61,10 +61,15 @@ class CourseKnowledgeBase:
         self._core_topics = {k: list(v) for k, v in self.topics.items()}
         self.auto_infer_prerequisite_dag()
 
-    def reset_to_core_units(self) -> None:
-        """Restores knowledge base to the pre-loaded university curriculum, clearing temporary/user units."""
-        self.units = dict(self._core_units)
-        self.topics = {k: list(v) for k, v in self._core_topics.items()}
+    def reset_to_core_units(self, include_preloaded: bool = True) -> None:
+        """Restores knowledge base. If include_preloaded is False, starts completely empty with 0 units and 0 topics."""
+        if include_preloaded:
+            self.units = dict(self._core_units)
+            self.topics = {k: list(v) for k, v in self._core_topics.items()}
+        else:
+            self.units = {}
+            self.topics = {}
+            self.concepts = {}
         self.auto_infer_prerequisite_dag()
 
 

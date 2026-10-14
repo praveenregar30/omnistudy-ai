@@ -410,6 +410,7 @@ if st.session_state.current_username is None:
             if owner_pass == "praveen30":
                 st.session_state.current_username = "praveen"
                 st.session_state.owner_authenticated = True
+                st.session_state.include_preloaded_course = False
                 st.success("✅ Welcome, Praveen! Unlocking your dashboard...")
                 st.rerun()
             else:
@@ -426,6 +427,7 @@ if st.session_state.current_username is None:
         """, unsafe_allow_html=True)
         if st.button("🔍 Enter as Judge (Demo)", key="btn_w_judge", use_container_width=True):
             st.session_state.current_username = "judge"
+            st.session_state.include_preloaded_course = True
             st.rerun()
 
     with w_col3:
@@ -439,6 +441,7 @@ if st.session_state.current_username is None:
         """, unsafe_allow_html=True)
         if st.button("🌱 Start as Guest (Fresh 0%)", key="btn_w_guest", use_container_width=True):
             st.session_state.current_username = "guest"
+            st.session_state.include_preloaded_course = False
             st.rerun()
 
     st.markdown("---")
@@ -459,6 +462,7 @@ if st.session_state.current_username is None:
                 else:
                     DEFAULT_PROFILES[clean_id] = {"name": custom_input_name.strip(), "level": custom_input_lvl, "init_scores": {}}
                     st.session_state.current_username = clean_id
+                    st.session_state.include_preloaded_course = False
                     st.rerun()
 
     st.stop()  # Halt execution until profile is chosen!
@@ -469,11 +473,11 @@ if st.session_state.current_username == "praveen" and not st.session_state.get("
     st.rerun()
 
 # Helper to sync user state with SQLite storage
-def sync_active_student(username: Optional[str]) -> StudentProfile:
+def sync_active_student(username: Optional[str], include_preloaded: bool = False) -> StudentProfile:
     clean_username = username if username else "guest"
     meta = DEFAULT_PROFILES.get(clean_username, {"name": f"{clean_username.title()}", "level": "Undergraduate", "init_scores": {}})
     u_data = UserStorage.get_or_create_user(clean_username, meta["name"], meta["level"])
-    student = learner.create_new_student(f"usr_{clean_username}", u_data["display_name"], u_data["academic_level"])
+    student = learner.create_new_student(f"usr_{clean_username}", u_data["display_name"], u_data["academic_level"], include_default_topics=include_preloaded)
 
     # Load BKT Mastery from SQLite
     db_masteries = UserStorage.load_mastery(clean_username)
@@ -492,7 +496,7 @@ def sync_active_student(username: Optional[str]) -> StudentProfile:
             UserStorage.save_mastery(clean_username, t, 0.0, 0, 0, 2.0)
 
     # Isolated user documents reload
-    kb.reset_to_core_units()
+    kb.reset_to_core_units(include_preloaded=include_preloaded)
     user_docs = UserStorage.get_user_documents(clean_username)
     for doc in user_docs:
         kb.ingest_custom_document(
@@ -509,7 +513,10 @@ def sync_active_student(username: Optional[str]) -> StudentProfile:
     return student
 
 active_user = st.session_state.current_username or "guest"
-current_student = sync_active_student(active_user)
+if "include_preloaded_course" not in st.session_state:
+    st.session_state.include_preloaded_course = (active_user == "judge")
+
+current_student = sync_active_student(active_user, include_preloaded=st.session_state.include_preloaded_course)
 
 # Calculate real BKT mastery: only counts topics where student has actually practiced!
 active_masteries = [tm.mastery_prob for tm in current_student.topic_masteries.values() if tm.interactions_count > 0]
@@ -588,6 +595,15 @@ with st.sidebar:
 
     st.caption(f"🔒 **Isolated Data Active**: All notes, BKT scores, chats, and quiz logs are strictly private to `{active_user}`.")
 
+    curriculum_mode = st.toggle(
+        "🎓 Preloaded CS 229 & 188 Course",
+        value=st.session_state.include_preloaded_course,
+        help="Turn ON to load Stanford CS 229 (Machine Learning) & Berkeley CS 188 (AI) benchmark materials for hackathon evaluation. Turn OFF for a 100% clean custom notes workspace."
+    )
+    if curriculum_mode != st.session_state.include_preloaded_course:
+        st.session_state.include_preloaded_course = curriculum_mode
+        st.rerun()
+
     st.metric(
         label="Overall Mastery P(L)",
         value=mastery_display,
@@ -595,6 +611,15 @@ with st.sidebar:
     )
 
     lang_mode = st.radio("Language Mode:", ["English", "Hinglish (Bilingual)"], horizontal=True)
+
+    with st.expander("🎬 Record Demo Video (Hackathon Guide)"):
+        st.markdown("""
+        **📹 Quick Screen Recording (Windows 10/11):**
+        - Press **`Win + Alt + R`** to start/stop screen recording instantly with audio!
+        - Saved to: `Videos\\Captures`
+        - Follow the 4-minute script in [`docs/DEMO_VIDEO_SCRIPT.md`](file:///c:/Users/77263/Downloads/hack/docs/DEMO_VIDEO_SCRIPT.md).
+        - Upload to YouTube as **Unlisted** and paste link in Devpost!
+        """)
 
     with st.expander("➕ Create New Profile"):
         new_name = st.text_input("Name:", placeholder="e.g., Ananya Verma")
@@ -607,6 +632,7 @@ with st.sidebar:
                 else:
                     DEFAULT_PROFILES[clean_uid] = {"name": new_name.strip(), "level": new_lvl, "init_scores": {}}
                     st.session_state.current_username = clean_uid
+                    st.session_state.include_preloaded_course = False
                     st.success(f"Profile created for {new_name}!")
                     st.rerun()
 
@@ -658,11 +684,12 @@ with kpi1:
 
 with kpi2:
     my_doc_count = len(UserStorage.get_user_documents_grouped(active_user))
+    kb_sub_desc = f"{my_doc_count} Private Document(s)" + (" + Preloaded CS 229 & 188" if st.session_state.include_preloaded_course else " (Clean Workspace)")
     st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">📚 Knowledge Base</div>
         <div class="kpi-value">{len(kb.units)} <span style="font-size:0.85rem;color:#0284c7;">Units</span></div>
-        <div class="kpi-sub">Preloaded (CS 229 & 188) + {my_doc_count} Your Documents</div>
+        <div class="kpi-sub">{kb_sub_desc}</div>
         <div class="progress-track"><div class="progress-fill" style="width:100%;"></div></div>
     </div>
     """, unsafe_allow_html=True)
@@ -722,12 +749,45 @@ with tab_ingest:
         st.markdown("#### 📤 Upload Your Material")
         input_type = st.radio("Select Input Source:", ["📄 PDF Document", "📝 Text Notes / Lecture Summary", "🎥 Video Transcript (Timestamped)"], horizontal=True)
 
-        sub_choice = st.radio("Course / Subject:", ["Choose Existing Subject", "➕ Add New Subject / Course"], horizontal=True, key="sub_choice_radio")
-        if sub_choice == "Choose Existing Subject":
-            assigned_topic = st.selectbox("Select Existing Subject:", list(kb.topics.keys()), key="ingest_top")
+        user_uploaded_docs = UserStorage.get_user_documents(active_user)
+        my_existing_topics = list(dict.fromkeys([d["topic"] for d in user_uploaded_docs]))
+        available_kb_topics = list(kb.topics.keys())
+
+        if my_existing_topics:
+            sub_choice = st.radio(
+                "Course / Subject Target:",
+                ["📌 Add Notes to Existing Subject", "➕ Create a New Subject / Course"],
+                horizontal=True,
+                key="sub_choice_radio"
+            )
+            if sub_choice == "📌 Add Notes to Existing Subject":
+                combined_topics = my_existing_topics + [t for t in available_kb_topics if t not in my_existing_topics]
+                assigned_topic = st.selectbox("Select Your Subject:", combined_topics, key="ingest_top_existing")
+                st.caption(f"📁 Adding more notes or chapters to: **{assigned_topic}**")
+            else:
+                new_sub_input = st.text_input("New Subject / Course Name:", placeholder="e.g. Operating Systems, Data Structures, Computer Networks", key="ingest_new_top")
+                assigned_topic = new_sub_input.strip() if new_sub_input.strip() else "General Course Materials"
         else:
-            new_sub_input = st.text_input("New Subject / Course Name:", placeholder="e.g. Operating Systems, Data Structures, Computer Networks", key="ingest_new_top")
-            assigned_topic = new_sub_input.strip() if new_sub_input.strip() else "General Course Materials"
+            if st.session_state.include_preloaded_course and available_kb_topics:
+                sub_choice = st.radio(
+                    "Course / Subject Target:",
+                    ["➕ Create Your New Subject", "🎓 Select from Preloaded University Course"],
+                    horizontal=True,
+                    key="sub_choice_radio_preloaded"
+                )
+                if sub_choice == "➕ Create Your New Subject":
+                    new_sub_input = st.text_input("New Subject / Course Name:", placeholder="e.g. Operating Systems, Data Structures, Physics", key="ingest_new_top")
+                    assigned_topic = new_sub_input.strip() if new_sub_input.strip() else "My First Subject"
+                else:
+                    assigned_topic = st.selectbox("Select Preloaded Course Topic:", available_kb_topics, key="ingest_top_pre")
+            else:
+                st.markdown("""
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+                    🌱 <strong>Clean Custom Workspace:</strong> No subjects exist yet. Enter your subject name below and upload your notes to build your course!
+                </div>
+                """, unsafe_allow_html=True)
+                new_sub_input = st.text_input("Enter Subject / Course Name:", placeholder="e.g. Operating Systems, Data Structures, Physics, Economics", key="ingest_new_top_clean")
+                assigned_topic = new_sub_input.strip() if new_sub_input.strip() else "General Course Materials"
 
         doc_title = st.text_input("Document / Lecture Title:", "My Lecture Notes")
 
@@ -847,9 +907,12 @@ with tab_chat:
         st.caption(f"Language: **{lang_mode}**")
     with chat_ctrl3:
         if st.button("🗑️ Clear Chat History"):
-            UserStorage.clear_chat_history(st.session_state.current_username)
+            UserStorage.clear_chat_history(active_user)
             st.success("Chat history cleared!")
             st.rerun()
+
+    if not kb.units:
+        st.info("🌱 **Clean Workspace Active:** No course notes are loaded yet. Go to **Tab 1: Multimodal Ingestion** to upload your notes, or turn ON **Preloaded CS 229 & 188 Course** in the left sidebar anytime!")
 
     # One-click sample prompts
     st.markdown("**⚡ Quick Prompts:**")
@@ -868,7 +931,7 @@ with tab_chat:
             st.session_state.quick_query = "How does quantum key distribution protocol BB84 prevent eavesdropping?"
 
     # Render persisted chat messages from SQLite
-    messages = UserStorage.get_chat_history(st.session_state.current_username, limit=30)
+    messages = UserStorage.get_chat_history(active_user, limit=30)
     for msg in messages:
         with st.chat_message(msg["role"]):
             if msg.get("is_outside_knowledge"):
@@ -906,7 +969,7 @@ with tab_chat:
 
     if user_input:
         # Save user message to SQLite
-        UserStorage.save_chat_message(st.session_state.current_username, "user", user_input)
+        UserStorage.save_chat_message(active_user, "user", user_input)
         with st.chat_message("user"):
             st.markdown(user_input)
 
@@ -936,14 +999,14 @@ with tab_chat:
                         {ans['explanation']}
                     </div>
                     """, unsafe_allow_html=True)
-                    UserStorage.save_chat_message(st.session_state.current_username, "assistant", ans["explanation"], is_outside=False)
+                    UserStorage.save_chat_message(active_user, "assistant", ans["explanation"], is_outside=False)
                 elif ans.get("is_outside_knowledge"):
                     st.markdown(f"""
                     <div class="outside-warning">
                         {ans['explanation']}
                     </div>
                     """, unsafe_allow_html=True)
-                    UserStorage.save_chat_message(st.session_state.current_username, "assistant", ans["explanation"], is_outside=True)
+                    UserStorage.save_chat_message(active_user, "assistant", ans["explanation"], is_outside=True)
                 else:
                     st.markdown(ans["explanation"])
                     render_voice_player(ans["explanation"], button_label="🔊 Listen to AI Tutor", key_suffix=f"chat_{int(time.time())}")
@@ -968,9 +1031,9 @@ with tab_chat:
                     if ans.get("primary_topic"):
                         new_m = learner.update_after_conversation(current_student, ans["primary_topic"], depth="medium")
                         tm = current_student.topic_masteries[ans["primary_topic"]]
-                        UserStorage.save_mastery(st.session_state.current_username, ans["primary_topic"], tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+                        UserStorage.save_mastery(active_user, ans["primary_topic"], tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
 
-                    UserStorage.save_chat_message(st.session_state.current_username, "assistant", ans["explanation"], citations=ans.get("citations", []))
+                    UserStorage.save_chat_message(active_user, "assistant", ans["explanation"], citations=ans.get("citations", []))
 
 # =====================================================================
 # TAB 3: ADAPTIVE ASSESSMENTS, TIMED MOCK EXAM & FEYNMAN MODE
@@ -1032,11 +1095,11 @@ with tab_assessment:
 
                     # Save to SQLite
                     UserStorage.log_quiz_attempt(
-                        st.session_state.current_username, q.question_id, q.question_text, q.question_type,
+                        active_user, q.question_id, q.question_text, q.question_type,
                         q.topic, str(user_input_val), q.correct_answer, attempt.is_correct, q.misconception_analysis
                     )
                     tm = current_student.topic_masteries[q.topic]
-                    UserStorage.save_mastery(st.session_state.current_username, q.topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+                    UserStorage.save_mastery(active_user, q.topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
 
                 if q.question_id in st.session_state.quiz_attempts:
                     att = st.session_state.quiz_attempts[q.question_id]
@@ -1085,9 +1148,9 @@ with tab_assessment:
                     attempts.append(att)
                     # Update BKT
                     learner.update_after_assessment_item(current_student, q.topic, att.is_correct, q.question_id, q.difficulty)
-                    UserStorage.log_quiz_attempt(st.session_state.current_username, q.question_id, q.question_text, q.question_type, q.topic, str(ans_val), q.correct_answer, att.is_correct)
+                    UserStorage.log_quiz_attempt(active_user, q.question_id, q.question_text, q.question_type, q.topic, str(ans_val), q.correct_answer, att.is_correct)
                     tm = current_student.topic_masteries[q.topic]
-                    UserStorage.save_mastery(st.session_state.current_username, q.topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+                    UserStorage.save_mastery(active_user, q.topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
 
                 report = assessment.generate_diagnostic_report(attempts)
                 st.session_state.mock_exam_attempts = attempts
@@ -1145,7 +1208,7 @@ with tab_assessment:
                 f_res = assessment.evaluate_feynman_teachback(f_topic, f_text)
                 new_m = learner.update_after_conversation(current_student, f_topic, depth=f_res["bkt_depth"])
                 tm = current_student.topic_masteries[f_topic]
-                UserStorage.save_mastery(st.session_state.current_username, f_topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+                UserStorage.save_mastery(active_user, f_topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
 
                 st.success(f"**Clarity Score: {f_res['clarity_score']}%** — {f_res['verdict']}")
                 st.markdown(f"- ✅ **Concepts Mastered:** `{', '.join(f_res['matched_keywords'])}`\n"
@@ -1268,9 +1331,9 @@ with tab_cram:
 
                     # Update BKT
                     learner.update_after_assessment_item(current_student, q.topic, att.is_correct, q.question_id, q.difficulty)
-                    UserStorage.log_quiz_attempt(st.session_state.current_username, q.question_id, q.question_text, q.question_type, q.topic, str(ans_val), q.correct_answer, att.is_correct)
+                    UserStorage.log_quiz_attempt(active_user, q.question_id, q.question_text, q.question_type, q.topic, str(ans_val), q.correct_answer, att.is_correct)
                     tm = current_student.topic_masteries[q.topic]
-                    UserStorage.save_mastery(st.session_state.current_username, q.topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+                    UserStorage.save_mastery(active_user, q.topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
 
                     if att.is_correct:
                         strong.add(q.topic)
@@ -1358,7 +1421,7 @@ with tab_cram:
                                 if wk_topic in current_student.topic_masteries:
                                     current_student.topic_masteries[wk_topic].mastery_prob = min(0.92, current_student.topic_masteries[wk_topic].mastery_prob + 0.25)
                                     tm = current_student.topic_masteries[wk_topic]
-                                    UserStorage.save_mastery(st.session_state.current_username, wk_topic, tm.mastery_prob, tm.interactions_count + 1, tm.correct_count + 1, tm.stability_days + 1.0)
+                                    UserStorage.save_mastery(active_user, wk_topic, tm.mastery_prob, tm.interactions_count + 1, tm.correct_count + 1, tm.stability_days + 1.0)
                                 st.success(f"🎉 **Mastery Unlocked!** You nailed the concept check for **{wk_topic}**! Topic status updated to 🟢 Mastered!")
                                 st.rerun()
                             else:
@@ -1401,8 +1464,8 @@ with tab_learner:
 
     # Isolated Recent Quiz Attempts Log
     st.markdown("#### 📜 My Recent Assessment History (Private to You)")
-    conn = UserStorage.get_or_create_user(st.session_state.current_username, current_student.name)
-    user_answered_ids = UserStorage.get_answered_question_ids(st.session_state.current_username)
+    conn = UserStorage.get_or_create_user(active_user, current_student.name)
+    user_answered_ids = UserStorage.get_answered_question_ids(active_user)
     st.caption(f"Total verified quiz attempts logged: **{len(user_answered_ids)}**")
 
     with st.expander("🛠️ Cold-Start Diagnostic Prior Intake"):
@@ -1415,7 +1478,7 @@ with tab_learner:
         if st.button("Apply Intake Calibration"):
             learner.apply_diagnostic_result(current_student, new_scores)
             for t, tm in current_student.topic_masteries.items():
-                UserStorage.save_mastery(st.session_state.current_username, t, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+                UserStorage.save_mastery(active_user, t, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
             st.success("Prior probabilities successfully updated in SQLite!")
             st.rerun()
 
@@ -1481,7 +1544,7 @@ with tab_revision:
     st.download_button(
         label="📥 Download Complete Study Pack & Timetable (.md)",
         data=full_guide,
-        file_name=f"{st.session_state.current_username}_Exam_Pack.md",
+        file_name=f"{active_user}_Exam_Pack.md",
         mime="text/markdown",
         type="primary"
     )

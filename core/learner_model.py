@@ -60,7 +60,7 @@ class BayesianLearnerModel:
     def __init__(self, default_params: Optional[BKTParameters] = None):
         self.params = default_params or BKTParameters()
 
-    def create_new_student(self, student_id: str, name: str, level: str = "Undergraduate") -> StudentProfile:
+    def create_new_student(self, student_id: str, name: str, level: str = "Undergraduate", include_default_topics: bool = True) -> StudentProfile:
         """Initializes a student profile with cold-start diagnostic defaults."""
         initial_p0 = 0.15 if level == "Beginner" else (0.45 if level == "Advanced" else 0.25)
         profile = StudentProfile(
@@ -72,15 +72,16 @@ class BayesianLearnerModel:
             interaction_history=[],
             question_history_ids=[]
         )
-        for topic in self.DEFAULT_TOPICS:
-            profile.topic_masteries[topic] = TopicMastery(
-                topic=topic,
-                mastery_prob=initial_p0,
-                interactions_count=0,
-                correct_count=0,
-                last_studied_timestamp=time.time(),
-                stability_days=2.0
-            )
+        if include_default_topics:
+            for topic in self.DEFAULT_TOPICS:
+                profile.topic_masteries[topic] = TopicMastery(
+                    topic=topic,
+                    mastery_prob=initial_p0,
+                    interactions_count=0,
+                    correct_count=0,
+                    last_studied_timestamp=time.time(),
+                    stability_days=2.0
+                )
         return profile
 
     def apply_diagnostic_result(self, profile: StudentProfile, topic_scores: Dict[str, float]) -> None:
