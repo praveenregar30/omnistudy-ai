@@ -60,8 +60,11 @@ class BayesianLearnerModel:
     def __init__(self, default_params: Optional[BKTParameters] = None):
         self.params = default_params or BKTParameters()
 
-    def create_new_student(self, student_id: str, name: str, level: str = "Undergraduate", include_default_topics: bool = True) -> StudentProfile:
+    def create_new_student(self, student_id: str, name: str, level: str = "Undergraduate", *args, **kwargs) -> StudentProfile:
         """Initializes a student profile with cold-start diagnostic defaults."""
+        include_default_topics = kwargs.get("include_default_topics", True)
+        if args:
+            include_default_topics = bool(args[0])
         initial_p0 = 0.15 if level == "Beginner" else (0.45 if level == "Advanced" else 0.25)
         profile = StudentProfile(
             student_id=student_id,
