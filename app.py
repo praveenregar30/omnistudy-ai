@@ -468,143 +468,119 @@ if "show_explore_guide" not in st.session_state:
 # =====================================================================
 if st.session_state.current_username is None:
     st.markdown("""
-    <div style="text-align: center; padding: 32px 15px 18px 15px;">
-        <div style="display:inline-flex; align-items:center; gap:8px; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; padding:5px 16px; border-radius:999px; font-size:0.80rem; font-weight:700; margin-bottom:12px; letter-spacing:0.6px; text-transform:uppercase;">
-            ✨ Track D: Personalized Tutoring & Adaptive Learning • Flagship Platform
-        </div>
-        <h1 style="font-size: 2.8rem; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; letter-spacing:-0.8px;">
+    <div style="text-align: center; margin-top: 25px; margin-bottom: 20px;">
+        <div style="font-size: 3.2rem; margin-bottom: 8px;">🎓</div>
+        <h1 style="font-size: 2.4rem; font-weight: 800; color: #0f172a; margin: 0 0 6px 0; letter-spacing: -0.6px;">
             OmniStudy AI
         </h1>
-        <p style="font-size: 1.15rem; color: #475569; max-width: 720px; margin: 0 auto 20px auto; line-height: 1.6;">
-            The Next-Generation Multimodal Study Ecosystem — Unifying Timestamped Lecture Videos, Textbooks, and Slides with Bayesian Knowledge Tracing & 48-Hour Exam Preparation.
+        <p style="font-size: 1.05rem; color: #64748b; margin: 0 auto; max-width: 520px; line-height: 1.5;">
+            Grounded multimodal study companion with Bayesian cognitive tracing
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    auth_tab_quick, auth_tab_email = st.tabs([
-        "🌐 Instant SSO & Quick Passes (Recommended)",
-        "✉️ University Email & Password Portal"
-    ])
+    auth_col_l, auth_col_main, auth_col_r = st.columns([1, 1.4, 1])
 
-    with auth_tab_quick:
-        col_g, col_guest, col_judge, col_owner = st.columns(4)
-
-        with col_g:
-            st.markdown("""
-            <div class="auth-card">
-                <div>
-                    <div style="font-size: 2.4rem; margin-bottom: 6px;">🌐</div>
-                    <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.15rem;">Google SSO</h3>
-                    <p style="font-size:0.82rem; color:#64748b; line-height:1.4; margin-bottom: 12px;">Instant 1-click university single-sign-on.</p>
-                </div>
+    with auth_col_main:
+        st.markdown("""
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 20px 24px 10px 24px; box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.08);">
+            <div style="text-align: center; font-size: 1.15rem; font-weight: 700; color: #0f172a; margin-bottom: 12px;">
+                Sign in to your learning workspace
             </div>
-            """, unsafe_allow_html=True)
-            g_email_input = st.text_input("Google Email:", value="student.google@omnistudy.ai", key="g_sso_field", label_visibility="collapsed")
-            if st.button("🚀 Continue with Google", key="btn_g_sso", use_container_width=True, type="primary"):
-                clean_gid = g_email_input.strip().lower().replace("@", "_at_").replace(".", "_")
-                short_name = g_email_input.split("@")[0].replace(".", " ").title()
-                DEFAULT_PROFILES[clean_gid] = {"name": f"Google Scholar ({short_name})", "level": "Undergraduate", "init_scores": {}}
-                st.session_state.current_username = clean_gid
-                st.session_state.include_preloaded_course = False
-                st.success("✅ Google Single-Sign-On Verified! Opening your private workspace...")
-                st.rerun()
+        </div>
+        """, unsafe_allow_html=True)
 
-        with col_guest:
-            st.markdown("""
-            <div class="auth-card">
-                <div>
-                    <div style="font-size: 2.4rem; margin-bottom: 6px;">👤</div>
-                    <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.15rem;">Guest Learner</h3>
-                    <p style="font-size:0.82rem; color:#64748b; line-height:1.4; margin-bottom: 12px;">Zero registration needed with isolated storage.</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.write("")
-            if st.button("🌱 Launch Guest Pass", key="btn_w_guest", use_container_width=True):
-                st.session_state.current_username = "guest"
-                st.session_state.include_preloaded_course = False
-                st.rerun()
+        login_tab, signup_tab, demo_tab = st.tabs(["🔑 Sign In", "✨ Create Account", "⚡ 1-Click Passes"])
 
-        with col_judge:
-            st.markdown("""
-            <div class="auth-card">
-                <div>
-                    <div style="font-size: 2.4rem; margin-bottom: 6px;">⚖️</div>
-                    <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.15rem;">Hackathon Judge</h3>
-                    <p style="font-size:0.82rem; color:#64748b; line-height:1.4; margin-bottom: 12px;">Pre-loaded CS 229 & 188 benchmark evaluation.</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.write("")
-            if st.button("🔍 Launch Evaluator Pass", key="btn_w_judge", use_container_width=True):
-                st.session_state.current_username = "judge"
-                st.session_state.include_preloaded_course = True
-                st.rerun()
+        with login_tab:
+            u_in = st.text_input("Username or Email:", placeholder="e.g. praveen, judge, or your_email@domain.com", key="login_user_in")
+            p_in = st.text_input("Password:", type="password", placeholder="Enter your password", key="login_pass_in")
+            
+            if st.button("Continue ➔", type="primary", use_container_width=True, key="btn_login_submit"):
+                clean_u = u_in.strip().lower()
+                if not clean_u:
+                    st.warning("Please enter your username or email.")
+                elif clean_u == "praveen":
+                    if p_in == "praveen30":
+                        st.session_state.current_username = "praveen"
+                        st.session_state.owner_authenticated = True
+                        st.session_state.include_preloaded_course = False
+                        st.success("Welcome back, Praveen! Loading your workspace...")
+                        st.rerun()
+                    else:
+                        st.error("Incorrect password for owner profile 'praveen'.")
+                elif clean_u == "judge":
+                    st.session_state.current_username = "judge"
+                    st.session_state.include_preloaded_course = True
+                    st.success("Welcome Hackathon Judge! Loading CS 229 evaluation benchmark...")
+                    st.rerun()
+                elif clean_u == "guest":
+                    st.session_state.current_username = "guest"
+                    st.session_state.include_preloaded_course = False
+                    st.rerun()
+                else:
+                    safe_id = clean_u.replace("@", "_at_").replace(".", "_")
+                    disp_name = u_in.split("@")[0].title() if "@" in u_in else u_in.title()
+                    DEFAULT_PROFILES[safe_id] = {"name": disp_name, "level": "Undergraduate", "init_scores": {}}
+                    UserStorage.get_or_create_user(safe_id, disp_name, "Undergraduate")
+                    st.session_state.current_username = safe_id
+                    st.session_state.include_preloaded_course = False
+                    st.success(f"Welcome back, {disp_name}! Loading your private workspace...")
+                    st.rerun()
 
-        with col_owner:
-            st.markdown("""
-            <div class="auth-card">
-                <div>
-                    <div style="font-size: 2.4rem; margin-bottom: 6px;">👑</div>
-                    <h3 style="margin: 0 0 4px 0; color:#0f172a; font-size: 1.15rem;">Founder (Praveen)</h3>
-                    <p style="font-size:0.82rem; color:#0284c7; line-height:1.4; margin-bottom: 12px;">Owner & Lead Developer Portal.</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            owner_pass = st.text_input("Owner Password:", type="password", key="owner_pwd_gate", placeholder="Enter password...", label_visibility="collapsed")
-            if st.button("🔓 Unlock Owner Portal", key="btn_w_praveen", use_container_width=True):
-                if owner_pass == "praveen30":
+        with signup_tab:
+            st.caption("Create a private student account with zero data leakage.")
+            su_name = st.text_input("Full Name:", placeholder="e.g. Rahul Sharma", key="su_name_in")
+            su_user = st.text_input("Choose Username or Email:", placeholder="e.g. rahul or rahul@gmail.com", key="su_user_in")
+            su_pass = st.text_input("Choose Password:", type="password", placeholder="Create a secure password", key="su_pass_in")
+            su_level = st.selectbox("Academic Level:", ["Undergraduate", "Beginner", "Advanced"], key="su_lvl_in")
+
+            if st.button("Create Account & Sign In 🚀", type="primary", use_container_width=True, key="btn_signup_submit"):
+                if su_user.strip() and su_pass.strip():
+                    clean_su = su_user.strip().lower()
+                    if clean_su == "praveen":
+                        st.error("Username 'praveen' is reserved for the owner account.")
+                    else:
+                        safe_su_id = clean_su.replace("@", "_at_").replace(".", "_")
+                        disp_su_name = su_name.strip() if su_name.strip() else clean_su.title()
+                        DEFAULT_PROFILES[safe_su_id] = {"name": disp_su_name, "level": su_level, "init_scores": {}}
+                        UserStorage.get_or_create_user(safe_su_id, disp_su_name, su_level)
+                        st.session_state.current_username = safe_su_id
+                        st.session_state.include_preloaded_course = False
+                        st.success(f"Account created for {disp_su_name}! Logging in...")
+                        st.rerun()
+                else:
+                    st.warning("Please provide a username and password.")
+
+        with demo_tab:
+            st.caption("Quick 1-click evaluation access:")
+            col_d1, col_d2, col_d3 = st.columns(3)
+            with col_d1:
+                if st.button("👑 Owner\n(Praveen)", use_container_width=True, key="quick_pass_praveen"):
                     st.session_state.current_username = "praveen"
                     st.session_state.owner_authenticated = True
                     st.session_state.include_preloaded_course = False
-                    st.success("✅ Welcome, Praveen! Unlocking owner dashboard...")
                     st.rerun()
-                else:
-                    st.error("❌ Incorrect password! Only owner Praveen can unlock this portal.")
-
-    with auth_tab_email:
-        st.markdown("#### 📧 Register or Sign In with University Credentials")
-        st.caption("Enter your email address to isolate all your course documents, Bayesian mastery curves, and revision flashcards in encrypted local SQLite storage.")
-        
-        em_col1, em_col2 = st.columns(2)
-        with em_col1:
-            email_addr = st.text_input("University / Work Email:", placeholder="e.g. student@iitmandi.ac.in", key="em_auth_email")
-            email_pass = st.text_input("Account Password:", type="password", placeholder="Enter your secret password...", key="em_auth_pass")
-        with em_col2:
-            email_name = st.text_input("Your Full Name:", placeholder="e.g. Aarav Sharma", key="em_auth_name")
-            email_track = st.selectbox("Academic Track / Level:", ["Undergraduate (B.Tech / B.S.)", "Beginner / Foundation", "Advanced / Graduate"], key="em_auth_track")
-
-        btn_e_c1, btn_e_c2 = st.columns(2)
-        with btn_e_c1:
-            if st.button("🚀 Create Free Account & Activate Workspace", type="primary", use_container_width=True, key="btn_reg_email"):
-                if email_addr.strip() and email_pass.strip():
-                    clean_uid = email_addr.strip().lower().replace("@", "_at_").replace(".", "_")
-                    disp_name = email_name.strip() if email_name.strip() else email_addr.split("@")[0].title()
-                    lvl_clean = "Undergraduate" if "Undergrad" in email_track else ("Beginner" if "Beginner" in email_track else "Advanced")
-                    DEFAULT_PROFILES[clean_uid] = {"name": disp_name, "level": lvl_clean, "init_scores": {}}
-                    UserStorage.get_or_create_user(clean_uid, disp_name, lvl_clean)
-                    st.session_state.current_username = clean_uid
+            with col_d2:
+                if st.button("⚖️ Judge\n(CS 229)", use_container_width=True, key="quick_pass_judge"):
+                    st.session_state.current_username = "judge"
+                    st.session_state.include_preloaded_course = True
+                    st.rerun()
+            with col_d3:
+                if st.button("👤 Guest\n(Clean)", use_container_width=True, key="quick_pass_guest"):
+                    st.session_state.current_username = "guest"
                     st.session_state.include_preloaded_course = False
-                    st.success(f"🎉 Account activated for {disp_name}! Verification pass generated. Opening your workspace...")
                     st.rerun()
-                else:
-                    st.warning("Please provide both email address and password to register.")
-        with btn_e_c2:
-            if st.button("🔑 Sign In to Existing Account", use_container_width=True, key="btn_login_email"):
-                if email_addr.strip() and email_pass.strip():
-                    clean_uid = email_addr.strip().lower().replace("@", "_at_").replace(".", "_")
-                    disp_name = email_name.strip() if email_name.strip() else email_addr.split("@")[0].title()
-                    DEFAULT_PROFILES[clean_uid] = {"name": disp_name, "level": "Undergraduate", "init_scores": {}}
-                    st.session_state.current_username = clean_uid
-                    st.session_state.include_preloaded_course = False
-                    st.success("✅ Credentials verified! Loading your private dashboard...")
-                    st.rerun()
-                else:
-                    st.warning("Please enter your email and password to sign in.")
 
-    # Interactive Explore Guide (Inspired by EduVantage's Explore Guide)
+        st.markdown("""
+        <div style="text-align: center; margin-top: 14px; font-size: 0.76rem; color: #94a3b8;">
+            🔒 Encrypted Private Storage • Track D Hackathon 2026
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Interactive Explore Guide below the login card
     st.markdown("---")
-    with st.expander("🧭 Explore Platform Architecture & Features First (Interactive Tour)", expanded=False):
+    with st.expander("🧭 Explore Platform Architecture & Features (Interactive Tour)", expanded=False):
         st.markdown("### 🌟 What Makes OmniStudy AI Unique?")
         g1, g2, g3 = st.columns(3)
         with g1:
@@ -646,12 +622,6 @@ if st.session_state.current_username is None:
                 <p style="font-size:0.85rem; color:#475569;">Evaluated on 60 balanced Golden Test queries with non-circular student cohort mastery progression comparisons.</p>
             </div>
             """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style="text-align:center; padding: 20px 0 10px 0; font-size:0.82rem; color:#94a3b8;">
-        🔒 Zero-Knowledge Data Isolation • ⚡ Bayesian Cognitive Engine • 🏆 Multimodal AI Hackathon 2026 (IIT Mandi, KamandPrompt, Augli.ai)
-    </div>
-    """, unsafe_allow_html=True)
 
     st.stop()  # Halt execution until authenticated!
 
@@ -860,8 +830,10 @@ with st.sidebar:
                     st.rerun()
 
     st.markdown("---")
-    # Quick Study Pack Download
-    study_guide_md = enhancements.export_markdown_study_guide(current_student, days_until_exam=7)
+    try:
+        study_guide_md = enhancements.export_markdown_study_guide(current_student, days_until_exam=7)
+    except Exception:
+        study_guide_md = f"# 🎓 OmniStudy AI Study Pack for {current_student.name}\n\nUpload notes in Tab 1 to generate personalized revision materials."
     st.download_button(
         label="📥 Download My Study Pack",
         data=study_guide_md,
@@ -1115,10 +1087,12 @@ with tab_ingest:
 
             with st.spinner("Processing multimodal document, extracting citations & inferring DAG..."):
                 if file_to_process is not None:
-                    created_units_list = kb.ingest_uploaded_file(file_to_process, doc_title, topic=assigned_topic)
+                    target_filename = getattr(file_to_process, "name", doc_title)
+                    created_units_list = kb.ingest_uploaded_file(file_to_process, target_filename, topic=assigned_topic)
                     content_for_simplification = " ".join([u.content_text for u in created_units_list])
+                    effective_title = doc_title if (doc_title and doc_title != "My Lecture Notes") else target_filename.replace(".pdf", "")
                     for u in created_units_list:
-                        UserStorage.save_user_document(active_user, doc_title, u.source_type, assigned_topic, u.location, u.content_text)
+                        UserStorage.save_user_document(active_user, effective_title, u.source_type, assigned_topic, u.location, u.content_text)
                 elif raw_text_to_process.strip():
                     src_type = "lecture_video" if "Video" in input_type else "slide_deck"
                     loc = "Video Transcript" if "Video" in input_type else "Lecture Slide Notes"
@@ -1211,21 +1185,39 @@ with tab_chat:
     if not kb.units:
         st.info("🌱 **Clean Workspace Active:** No course notes are loaded yet. Go to **Tab 1: Multimodal Ingestion** to upload your notes, or turn ON **Preloaded CS 229 & 188 Course** in the left sidebar anytime!")
 
-    # One-click sample prompts
+    # Quick Prompts
     st.markdown("**⚡ Quick Prompts:**")
     qp1, qp2, qp3, qp4 = st.columns(4)
-    with qp1:
-        if st.button("📐 Why 1/2 factor in MSE?", use_container_width=True):
-            st.session_state.quick_query = "Why is 1/2 factor included in the linear regression cost function?"
-    with qp2:
-        if st.button("📈 Sigmoid Function Range", use_container_width=True):
-            st.session_state.quick_query = "What is the formula and output range of the sigmoid activation function in logistic regression?"
-    with qp3:
-        if st.button("💎 L1 Lasso vs L2 Ridge", use_container_width=True):
-            st.session_state.quick_query = "Why does L1 Lasso regularization produce sparse models with zero weights compared to L2 Ridge?"
-    with qp4:
-        if st.button("🚫 Test Off-Curriculum Guard", use_container_width=True):
-            st.session_state.quick_query = "How does quantum key distribution protocol BB84 prevent eavesdropping?"
+    if st.session_state.include_preloaded_course:
+        with qp1:
+            if st.button("📐 Why 1/2 factor in MSE?", use_container_width=True):
+                st.session_state.quick_query = "Why is 1/2 factor included in the linear regression cost function?"
+        with qp2:
+            if st.button("📈 Sigmoid Function Range", use_container_width=True):
+                st.session_state.quick_query = "What is the formula and output range of the sigmoid activation function in logistic regression?"
+        with qp3:
+            if st.button("💎 L1 Lasso vs L2 Ridge", use_container_width=True):
+                st.session_state.quick_query = "Why does L1 Lasso regularization produce sparse models with zero weights compared to L2 Ridge?"
+        with qp4:
+            if st.button("🚫 Test Off-Curriculum Guard", use_container_width=True):
+                st.session_state.quick_query = "How does quantum key distribution protocol BB84 prevent eavesdropping?"
+    else:
+        user_uploaded_docs = UserStorage.get_user_documents(active_user)
+        user_topics = list(dict.fromkeys([d["topic"] for d in user_uploaded_docs]))
+        t1_label = f"📖 Summarize {user_topics[0][:15]}" if user_topics else "📖 Summarize Notes"
+        t2_label = f"💡 Key Concepts" if not user_topics else f"💡 {user_topics[0][:14]} Concepts"
+        with qp1:
+            if st.button(t1_label, use_container_width=True):
+                st.session_state.quick_query = "Can you summarize the most important points and definitions from my course notes?"
+        with qp2:
+            if st.button(t2_label, use_container_width=True):
+                st.session_state.quick_query = "What are the foundational concepts and formulas I must memorize for my exam?"
+        with qp3:
+            if st.button("❓ Quiz Me on My Notes", use_container_width=True):
+                st.session_state.quick_query = "Ask me a conceptual question based on my uploaded notes and evaluate my answer."
+        with qp4:
+            if st.button("🚫 Test Refusal Gate", use_container_width=True):
+                st.session_state.quick_query = "How does quantum key distribution protocol BB84 prevent eavesdropping?"
 
     # Render persisted chat messages from SQLite
     messages = UserStorage.get_chat_history(active_user, limit=30)
@@ -1494,18 +1486,20 @@ with tab_assessment:
         st.markdown("#### 🏆 Feynman Teach-Back Challenge (You Teach the AI!)")
         st.caption("Explain a difficult concept in your own words. OmniStudy assesses your conceptual precision against verified textbook rubrics and awards BKT Mastery XP.")
 
-        f_topic = st.selectbox("Select Concept to Teach:", list(kb.topics.keys()), key="feyn_top")
+        avail_f_topics = list(kb.topics.keys()) or list(current_student.topic_masteries.keys()) or ["Course Concepts"]
+        f_topic = st.selectbox("Select Concept to Teach:", avail_f_topics, key="feyn_top")
         f_text = st.text_area(
             f"Explain '{f_topic}' simply and intuitively, {current_student.name.split()[0]}:",
-            placeholder="e.g. In supervised learning, our model learns a mapping from labeled input features to targets by minimizing cost...",
+            placeholder="e.g. Explain the core mechanism, law, or definition in your own words...",
             height=110
         )
         if st.button("Evaluate My Feynman Explanation", type="primary"):
             if f_text.strip():
                 f_res = assessment.evaluate_feynman_teachback(f_topic, f_text)
                 new_m = learner.update_after_conversation(current_student, f_topic, depth=f_res["bkt_depth"])
-                tm = current_student.topic_masteries[f_topic]
-                UserStorage.save_mastery(active_user, f_topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
+                if f_topic in current_student.topic_masteries:
+                    tm = current_student.topic_masteries[f_topic]
+                    UserStorage.save_mastery(active_user, f_topic, tm.mastery_prob, tm.interactions_count, tm.correct_count, tm.stability_days)
 
                 st.success(f"**Clarity Score: {f_res['clarity_score']}%** — {f_res['verdict']}")
                 st.markdown(f"- ✅ **Concepts Mastered:** `{', '.join(f_res['matched_keywords'])}`\n"
@@ -1536,14 +1530,15 @@ with tab_cram:
             cram_file = st.file_uploader("Upload Notes PDF for Cramming:", type=["pdf"], key="cram_uploader")
             cram_text = st.text_area("Or Paste Notes Text / Syllabus Summary:", height=100, placeholder="Paste your lecture notes or exam syllabus summary here...", key="cram_text_area")
             if cram_file is not None:
-                units = kb.ingest_uploaded_file(cram_file, cram_file.name, topic="Exam Cram Material")
+                units = kb.ingest_uploaded_file(cram_file, getattr(cram_file, 'name', 'Exam Cram Material'), topic="Exam Cram Material")
                 custom_cram_notes = " ".join([u.content_text for u in units])
             elif cram_text.strip():
                 u = kb.ingest_custom_document("Exam Cram Notes", cram_text.strip(), "slide_deck", "Exam Cram Material", "Exam Cram", "Cram p. 1")
                 custom_cram_notes = cram_text.strip()
 
     if st.button("🚀 Start High-Yield Crash Course (Teach Me from Scratch)", type="primary", use_container_width=True):
-        target_t = list(kb.topics.keys())[0] if cram_scope in ["All Course Topics", "📄 Custom Uploaded Material"] else cram_scope
+        default_t = list(kb.topics.keys())[0] if kb.topics else "Course Fundamentals"
+        target_t = default_t if cram_scope in ["All Course Topics", "📄 Custom Uploaded Material"] else cram_scope
         crash_data = enhancements.generate_emergency_crash_course(
             topic=target_t,
             raw_notes=custom_cram_notes,
@@ -1805,18 +1800,27 @@ with tab_revision:
     st.markdown("### ⚡ High-Yield Revision Kit & Spaced Repetition Exam Scheduler")
     st.caption("Custom flashcards, spoken audio briefs, and Ebbinghaus revision timetables tailored to your weakest topics.")
 
-    rev_kit = enhancements.generate_revision_kit(current_student)
+    try:
+        rev_kit = enhancements.generate_revision_kit(current_student)
+    except Exception:
+        rev_kit = {
+            "flashcards": [],
+            "audio_brief_script": "Upload course notes to generate a personalized spoken audio brief."
+        }
 
     r_col1, r_col2 = st.columns(2)
     with r_col1:
         st.markdown("#### 📇 Flashcards for Weak Concepts")
-        for fc in rev_kit["flashcards"][:3]:
-            with st.expander(f"📌 {fc['topic']}: {fc['subtopic']}", expanded=True):
-                st.markdown(f"**Question:** {fc['front']}")
-                st.markdown(f"**Answer:** {fc['back']}")
-                if fc['formula'] != "N/A":
-                    st.latex(fc['formula'])
-                st.caption(f"📍 Source: {fc['source_cite']}")
+        if rev_kit["flashcards"]:
+            for fc in rev_kit["flashcards"][:3]:
+                with st.expander(f"📌 {fc['topic']}: {fc['subtopic']}", expanded=True):
+                    st.markdown(f"**Question:** {fc['front']}")
+                    st.markdown(f"**Answer:** {fc['back']}")
+                    if fc.get('formula') and fc['formula'] != "N/A":
+                        st.latex(fc['formula'])
+                    st.caption(f"📍 Source: {fc.get('source_cite', 'Course Reference')}")
+        else:
+            st.info("Upload course lecture notes to generate custom active recall flashcards.")
 
     with r_col2:
         st.markdown("#### 🎙️ 2-Minute Audio Revision Brief")
@@ -1826,7 +1830,10 @@ with tab_revision:
     st.markdown("---")
     st.markdown("#### 📅 Adaptive Exam Study Calendar (Ebbinghaus Decay)")
     days_left = st.slider("Days Until Final Exam:", 3, 30, 7)
-    schedule = enhancements.generate_exam_study_schedule(current_student, days_until_exam=days_left)
+    try:
+        schedule = enhancements.generate_exam_study_schedule(current_student, days_until_exam=days_left)
+    except Exception:
+        schedule = []
     sched_rows = []
     for s in schedule:
         sched_rows.append({
@@ -1837,7 +1844,10 @@ with tab_revision:
         })
     st.dataframe(pd.DataFrame(sched_rows), use_container_width=True)
 
-    full_guide = enhancements.export_markdown_study_guide(current_student, days_until_exam=days_left)
+    try:
+        full_guide = enhancements.export_markdown_study_guide(current_student, days_until_exam=days_left)
+    except Exception:
+        full_guide = f"# 🎓 OmniStudy AI Study Pack for {current_student.name}\n\nUpload notes to generate revision timetable."
     st.download_button(
         label="📥 Download Complete Study Pack & Timetable (.md)",
         data=full_guide,

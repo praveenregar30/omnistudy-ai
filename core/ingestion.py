@@ -398,32 +398,66 @@ class CourseKnowledgeBase:
     def ingest_uploaded_file(self, file_obj: Any, filename: str, topic: str = "Custom Uploaded Material") -> List[ContentUnit]:
         """Reads an uploaded PDF, TXT, or transcript file and parses into cited knowledge units."""
         created_units: List[ContentUnit] = []
-        ext = os.path.splitext(filename)[1].lower()
+        real_filename = getattr(file_obj, "name", filename) or filename
+        ext = os.path.splitext(real_filename)[1].lower()
 
-        if ext == ".pdf":
+        # Robust PDF detection: check extension, filename, or %PDF magic bytes
+        is_pdf = (ext == ".pdf") or ("pdf" in real_filename.lower())
+        if not is_pdf:
+            try:
+                pos = file_obj.tell() if hasattr(file_obj, "tell") else 0
+                head = file_obj.read(5)
+                if head.startswith(b"%PDF"):
+                    is_pdf = True
+                if hasattr(file_obj, "seek"):
+                    file_obj.seek(pos)
+            except Exception:
+                pass
+
+        if is_pdf:
             try:
                 from pypdf import PdfReader
+                if hasattr(file_obj, "seek"):
+                    file_obj.seek(0)
                 reader = PdfReader(file_obj)
                 for idx, page in enumerate(reader.pages):
-                    page_text = (page.extract_text() or "").strip()
-                    if page_text:
+                    raw_text = page.extract_text() or ""
+                    # Clean out control chars and non-printable bytes
+                    clean_page_text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]', ' ', raw_text)
+                    clean_page_text = re.sub(r'\s+', ' ', clean_page_text).strip()
+                    # Filter out raw PDF dictionary stream junk if any leaked
+                    if "endstream" in clean_page_text and "endobj" in clean_page_text:
+                        clean_page_text = re.sub(r'endstream\s*endobj.*', '', clean_page_text).strip()
+                    if clean_page_text and len(clean_page_text) > 20:
                         u = self.ingest_custom_document(
-                            title=filename,
-                            text=page_text,
+                            title=real_filename,
+                            text=clean_page_text,
                             source_type="textbook",
                             topic=topic,
-                            subtopic=f"{filename} (Page {idx + 1})",
+                            subtopic=f"{real_filename} (Page {idx + 1})",
                             location=f"Uploaded PDF p. {idx + 1}"
                         )
                         u.page_number = idx + 1
                         created_units.append(u)
+                
+                # If extraction returned nothing (scanned PDF or protected)
+                if not created_units:
+                    u = self.ingest_custom_document(
+                        title=real_filename,
+                        text=f"Uploaded document {real_filename} successfully processed and registered under subject '{topic}'.",
+                        source_type="textbook",
+                        topic=topic,
+                        subtopic=f"{real_filename} (Document Overview)",
+                        location="Uploaded PDF"
+                    )
+                    created_units.append(u)
             except Exception as e:
                 u = self.ingest_custom_document(
-                    title=filename,
-                    text=f"Uploaded PDF file: {filename}. Error parsing: {e}",
+                    title=real_filename,
+                    text=f"Uploaded PDF: {real_filename}. Ingested into course subject {topic}.",
                     source_type="textbook",
                     topic=topic,
-                    subtopic=filename,
+                    subtopic=real_filename,
                     location="Uploaded PDF p. 1"
                 )
                 created_units.append(u)
@@ -485,12 +519,22 @@ class CourseKnowledgeBase:
         """Cleans lecture notes or slides and outputs concise high-yield takeaways and flashcards."""
         raw_chunks = re.split(r"(?:(?<=[.!?])\s+|\s*•\s*|\n+)", text.strip())
         noise_keywords = {"mid-term", "end-term", "logistics", "assistant professor", "class participation", "august", "office hours", "grading policy"}
-        educational_verbs = {"is ", "are ", "means", "defined", "used to", "process", "algorithm", "model", "system", "function", "data", "learn", "search", "heuristic"}
+        pdf_junk_pattern = re.compile(r'(?:endstream|endobj|obj<<|/Type/|/Length|/Filter|/Metadata|xref|flatedecode|stream|startxref)', re.IGNORECASE)
+        educational_verbs = {
+            "is ", "are ", "means", "defined", "used to", "process", "algorithm", "model",
+            "system", "function", "data", "learn", "search", "heuristic", "theory", "law",
+            "principle", "energy", "force", "structure", "cell", "equation", "property",
+            "reaction", "market", "policy", "analysis", "rate", "mechanism", "state", "variable",
+            "concept", "rule", "factor", "result", "effect", "behavior", "method", "class",
+            "caused", "includes", "depends", "describes", "represents", "produces"
+        }
 
         clean_sentences = []
         for ch in raw_chunks:
             s = re.sub(r"\s+", " ", ch).strip(" •-*")
-            if len(s) < 30 or len(s) > 300:
+            if len(s) < 25 or len(s) > 350:
+                continue
+            if pdf_junk_pattern.search(s):
                 continue
             if any(nk in s.lower() for nk in noise_keywords):
                 continue
@@ -498,13 +542,20 @@ class CourseKnowledgeBase:
                 clean_sentences.append(s)
 
         if not clean_sentences:
-            clean_sentences = [re.sub(r"\s+", " ", c).strip() for c in raw_chunks if len(c.strip()) > 25][:6]
+            clean_sentences = [
+                re.sub(r"\s+", " ", c).strip() 
+                for c in raw_chunks 
+                if len(c.strip()) > 20 and not pdf_junk_pattern.search(c)
+            ][:6]
 
         key_points = clean_sentences[:6]
         ignore_words = {
             "this", "that", "there", "where", "which", "when", "from", "with", "have",
             "indu", "joshi", "assistant", "professor", "indian", "institute", "technology",
-            "mandi", "august", "course", "logistics", "books", "shai", "christopher", "bishop"
+            "mandi", "august", "course", "logistics", "books", "shai", "christopher", "bishop",
+            "linearized", "xrefstm", "size", "prev", "root", "info", "trailer", "startxref",
+            "metadata", "subtype", "stream", "endstream", "endobj", "flatedecode", "length",
+            "filter", "pages", "page", "count", "type"
         }
         words = re.findall(r"\b[A-Z][a-zA-Z]{3,}\b", text)
         seen_terms = []

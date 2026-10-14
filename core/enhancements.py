@@ -25,6 +25,11 @@ class EnhancementsManager:
         dag = self.kb.get_prerequisite_dag()
         lines = ["flowchart TD"]
 
+        if not dag.get("nodes"):
+            lines.append('    empty_node["📄 Course Workspace Ready<br>(Upload lecture notes to map prerequisite DAG)"]')
+            lines.append('    style empty_node fill:#f8fafc,stroke:#94a3b8,stroke-width:2px')
+            return "\n".join(lines)
+
         # Color palette for mastery status
         # Green: Mastered (>= 0.75), Orange: Developing (0.45 - 0.74), Red: Needs Study (< 0.45)
         for node in dag["nodes"]:
@@ -73,7 +78,7 @@ class EnhancementsManager:
                     "topic": u.topic,
                     "subtopic": u.subtopic,
                     "front": f"What is the core principle of {u.subtopic}?",
-                    "back": u.content_text[:200] + "...",
+                    "back": u.content_text[:200] + ("..." if len(u.content_text) > 200 else ""),
                     "formula": u.key_formulas[0] if u.key_formulas else "N/A",
                     "source_cite": f"{u.source_title} ({u.location})"
                 })
@@ -85,14 +90,38 @@ class EnhancementsManager:
                     "location": u.location
                 })
 
-            audio_brief_paragraphs.append(
-                f"Topic focus: {topic}. Remember that {units[0].subtopic} requires strict grounding. "
-                f"Refer back to {units[0].source_title} at {units[0].location} for detailed derivations."
-            )
+            if units:
+                sub_title = units[0].subtopic or topic
+                src_title = units[0].source_title or "Course Material"
+                loc = units[0].location or "Notes"
+                audio_brief_paragraphs.append(
+                    f"Topic focus: {topic}. Remember that {sub_title} requires strict grounding. "
+                    f"Refer back to {src_title} at {loc} for detailed derivations."
+                )
+            else:
+                audio_brief_paragraphs.append(
+                    f"Topic focus: {topic}. Review your lecture notes and practice active recall to solidify this subject."
+                )
+
+        if not flashcards:
+            flashcards.append({
+                "topic": "Personal Study Workspace",
+                "subtopic": "Active Recall & Spaced Repetition",
+                "front": "How do active recall and spaced repetition improve exam performance?",
+                "back": "Active retrieval forces cognitive reactivation of memory traces, increasing memory stability S in the Ebbinghaus forgetting curve R(t) = exp(-t / S).",
+                "formula": "R(t) = e^{-t / S}",
+                "source_cite": "Cognitive Learning Engine"
+            })
+            cheat_sheet_points.append({
+                "concept": "Knowledge Ingestion",
+                "summary": "Upload your lecture notes, textbook PDFs, or transcripts to generate custom grounded flashcards.",
+                "formula": None,
+                "location": "Tab 1: Multimodal Ingestion"
+            })
 
         audio_script = (
             f"Hello {student.name}, here is your personalized 2-minute high-yield audio revision brief. "
-            + " ".join(audio_brief_paragraphs)
+            + (" ".join(audio_brief_paragraphs) if audio_brief_paragraphs else "Explore your course topics and upload lecture materials to generate grounded revision notes.")
             + " Keep practicing adaptive quizzes to solidify these concepts before your exam!"
         )
 
@@ -110,7 +139,6 @@ class EnhancementsManager:
         daily_hours: float = 2.0
     ) -> List[Dict[str, Any]]:
         """Calculates an optimal study calendar based on Ebbinghaus forgetting curves and BKT deficits."""
-        # Calculate topic urgency: deficit = (1.0 - mastery) * (1.0 / stability)
         topic_urgency = []
         for topic, tm in student.topic_masteries.items():
             retention = tm.retention_probability()
@@ -130,14 +158,16 @@ class EnhancementsManager:
                 "recommended_activity": ""
             }
 
-            if day == days_until_exam:
+            if not topic_urgency:
+                day_plan["focus_topics"] = ["Course Ingestion & Notes Review"]
+                day_plan["recommended_activity"] = "Upload your lecture slides or syllabus and practice your first adaptive quiz"
+            elif day == days_until_exam:
                 day_plan["recommended_activity"] = "Comprehensive Mock Exam + Full Formula Review"
                 day_plan["focus_topics"] = [t[0] for t in topic_urgency[:3]]
             elif day == 1:
                 day_plan["recommended_activity"] = "Diagnostic Review + High-Yield Foundation Concepts"
-                day_plan["focus_topics"] = [topic_urgency[0][0], topic_urgency[1][0]]
+                day_plan["focus_topics"] = [t[0] for t in topic_urgency[:2]]
             else:
-                # Cycle through urgent topics using spaced repetition intervals
                 target_idx = (day - 2) % len(topic_urgency)
                 target_topic = topic_urgency[target_idx]
                 day_plan["focus_topics"] = [target_topic[0]]
